@@ -219,6 +219,17 @@ mutual
     ∎
 
 
+
+idE : ∀{Γ} → Env Γ Γ
+idE {ε} ()
+idE {Γ < σ} zero = reflect σ (nvar zero)
+idE {Γ < σ} (suc x) = renval suc (idE x)
+
+norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
+norm t = reify _ (eval idE t)
+
+
+
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
 wk<< α β v zero = proof v ≡⟨⟩ v ∎
 wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
