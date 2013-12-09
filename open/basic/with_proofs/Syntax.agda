@@ -8,7 +8,6 @@ open ≅-Reasoning renaming (begin_ to proof_)
 data Ty : Set where
   nat : Ty
   _⇒_ : Ty → Ty → Ty
-  _∧_ : Ty → Ty → Ty
 
 data Con : Set where
   ε   : Con
@@ -25,10 +24,6 @@ data Tm (Γ : Con) : Ty → Set where
   ze   : Tm Γ nat
   sc   : Tm Γ nat → Tm Γ nat
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
-  _,,_ : ∀{σ τ} → Tm Γ σ → Tm Γ τ → Tm Γ (σ ∧ τ)
-  fst : ∀{σ τ} → Tm Γ (σ ∧ τ) → Tm Γ σ
-  snd : ∀{σ τ} → Tm Γ (σ ∧ τ) → Tm Γ τ
-  
 
 mutual
   data Nf (Γ : Con) : Ty → Set where
@@ -36,14 +31,11 @@ mutual
     ne    : Ne Γ nat → Nf Γ nat
     nzero : Nf Γ nat
     nsuc  : Nf Γ nat → Nf Γ nat
-    _,-,_  : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
 
   data Ne (Γ : Con) : Ty → Set where
     nvar : ∀{σ} → Var Γ σ → Ne Γ σ
     napp : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
-    nfst  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
-    nsnd  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
 
 -- the type of renamings: functions mapping variables in one context to
 -- variables in another
@@ -75,9 +67,6 @@ ren ρ (app t u) = app (ren ρ t) (ren ρ u)
 ren ρ ze = ze
 ren ρ (sc t) = sc (ren ρ t)
 ren ρ (rec z f n) = rec (ren ρ z) (ren ρ f) (ren ρ n)
-ren ρ (t ,, t₁) = ren ρ t ,, ren ρ t₁
-ren ρ (fst t) = fst (ren ρ t)
-ren ρ (snd t) = snd (ren ρ t)
 
 
 mutual
@@ -86,14 +75,11 @@ mutual
   renNf ρ (ne n) = ne (renNe ρ n)
   renNf ρ nzero = nzero
   renNf ρ (nsuc n) = nsuc (renNf ρ n)
-  renNf ρ (t ,-, t₁) = renNf ρ t ,-, renNf ρ t₁ 
     
   renNe : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Ne Δ σ → Ne Γ σ
   renNe ρ (nvar x) = nvar (ρ x)
   renNe ρ (napp t u) = napp (renNe ρ t) (renNf ρ u)
   renNe ρ (nrec z f n) = nrec (renNf ρ z) (renNf ρ f) (renNe ρ n)
-  renNe ρ (nfst n) = nfst (renNe ρ n)
-  renNe ρ (nsnd n) = nsnd (renNe ρ n)
   
 
 -- the identity renaming (maps variables to themselves)
@@ -139,10 +125,6 @@ renid (app t u) = cong₂ app (renid t) (renid u)
 renid ze = refl
 renid (sc t) = cong sc (renid t)
 renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
-renid (t ,, u) = cong₂ _,,_ (renid t) (renid u)
-renid (fst t) = cong fst (renid t)
-renid (snd t) = cong snd (renid t)
-
 
 
 -- composing two renamings and then weakening them together should be
@@ -168,10 +150,6 @@ rencomp f g (app t u) = cong₂ app (rencomp f g t ) (rencomp f g u)
 rencomp f g ze = refl
 rencomp f g (sc t) = cong sc (rencomp f g t)
 rencomp f g (rec z h n) = cong₃ rec (rencomp f g z) (rencomp f g h) (rencomp f g n)
-rencomp f g (t ,, u) = cong₂ _,,_ (rencomp f g t) (rencomp f g u)
-rencomp f g (fst t) = cong fst (rencomp f g t)
-rencomp f g (snd t) = cong snd (rencomp f g t)
-
 
 
 mutual
@@ -179,8 +157,6 @@ mutual
   rennecomp ρ' ρ (nvar x) = refl
   rennecomp ρ' ρ (napp t u) = cong₂ napp (rennecomp ρ' ρ t) (rennfcomp ρ' ρ u)
   rennecomp ρ' ρ (nrec z f n) = cong₃ nrec (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f) (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nfst n) = cong nfst (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
 
   rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
   rennfcomp ρ' ρ (nlam v) =  proof
@@ -193,8 +169,6 @@ mutual
   rennfcomp ρ' ρ (ne x) = cong ne (rennecomp ρ' ρ x)
   rennfcomp ρ' ρ nzero = refl
   rennfcomp ρ' ρ (nsuc v) = cong nsuc (rennfcomp ρ' ρ v)
-  rennfcomp ρ' ρ (t ,-, u) = cong₂ _,-,_ (rennfcomp ρ' ρ t) (rennfcomp ρ' ρ u)
-
 
 
 Sub : Con → Con → Set
@@ -211,14 +185,10 @@ sub f (app t u) = app (sub f t) (sub f u)
 sub f ze = ze
 sub f (sc n) = sc (sub f n)
 sub f (rec z g n) = rec (sub f z) (sub f g) (sub f n)
-sub f (t ,, u) = sub f t ,, sub f u
-sub f (fst t) = fst (sub f t)
-sub f (snd t) = snd (sub f t)
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
 sub<< f t zero = t
 sub<< f t (suc x) = f x
-
 
 subId : ∀{Γ} → Sub Γ Γ
 subId = var
@@ -244,9 +214,6 @@ subid (app t u) = cong₂ app (subid t) (subid u)
 subid ze = refl
 subid (sc n) = cong sc (subid n)
 subid (rec z f n) = cong₃ rec (subid z) (subid f) (subid n)
-subid (t ,, u) = cong₂ _,,_ (subid t) (subid u)
-subid (fst t) = cong fst (subid t)
-subid (snd t) = cong snd (subid t)
 
 
 -- time for the mysterious four lemmas:
@@ -269,9 +236,6 @@ subren f g (app t u) = cong₂ app (subren f g t) (subren f g u)
 subren f g ze = refl
 subren f g (sc n) = cong sc (subren f g n)
 subren f g (rec z h n) = cong₃ rec (subren f g z) (subren f g h) (subren f g n)
-subren f g (t ,, u) = cong₂ _,,_ (subren f g t) (subren f g u)
-subren f g (fst t) = cong fst (subren f g t)
-subren f g (snd t) = cong snd (subren f g t)
 
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -293,10 +257,6 @@ rensub f g (app t u) = cong₂ app (rensub f g t) (rensub f g u)
 rensub f g ze = refl
 rensub f g (sc n) = cong sc (rensub f g n)
 rensub f g (rec z h n) = cong₃ rec (rensub f g z) (rensub f g h) (rensub f g n)
-rensub f g (t ,, u) = cong₂ _,,_ (rensub f g t) (rensub f g u)
-rensub f g (fst t) = cong fst (rensub f g t)
-rensub f g (snd t) = cong snd (rensub f g t)
-
 
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -325,24 +285,5 @@ subcomp f g (app t u) = cong₂ app (subcomp  f g t) (subcomp f g u)
 subcomp f g ze = refl
 subcomp f g (sc n) = cong sc (subcomp f g n)
 subcomp f g (rec z h n) = cong₃ rec (subcomp f g z) (subcomp f g h) (subcomp f g n)
-subcomp f g (t ,, u) = cong₂ _,,_ (subcomp f g t) (subcomp f g u)
-subcomp f g (fst t) = cong fst (subcomp f g t)
-subcomp f g (snd t) = cong snd (subcomp f g t)
 
 
-data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
-  refl∼ : ∀{Γ}{σ} → (t : Tm Γ σ) → t ∼ t
-  conglam : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
-  beta : ∀{Γ σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
-  eta : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
-
-  {-
-  refl
-  sym
-  trans
-  beta 
-  eta 
-  congapp
-  conglam
-  congvar?
-  -}
