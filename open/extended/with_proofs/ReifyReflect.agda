@@ -10,19 +10,19 @@ open ≅-Reasoning renaming (begin_ to proof_)
 mutual 
   Val : Con → Ty → Set
   Val Γ nat    = Nf Γ nat
-  Val Γ (σ ⇒ τ) = Σ (∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ) λ f → ∀{Δ Δ'}(ρ : Ren Γ Δ)(ρ' : Ren Δ Δ')(v : Val Δ σ) → renval ρ' {τ} (f ρ v) ≅ f (ρ' ∘ ρ) (renval ρ' {σ} v)
+  Val Γ (σ ⇒ τ) = Σ (∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ) λ f → ∀{Δ Δ'}(ρ : Ren Γ Δ)(ρ' : Ren Δ Δ')(v : Val Δ σ) → renval {τ} ρ' (f ρ v) ≅ f (ρ' ∘ ρ) (renval {σ} ρ' v)
   Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
 
-  renval : ∀{Γ Δ} → Ren Γ Δ → ∀{σ} → Val Γ σ → Val Δ σ
-  renval α {nat} v = renNf α v
-  renval {Γ}{Δ} α {σ ⇒ τ} v = (λ {E} β v' → proj₁ v (renComp β α) v') , (
+  renval : ∀{σ Γ Δ} → Ren Γ Δ → Val Γ σ → Val Δ σ
+  renval {nat} α v = renNf α v
+  renval {σ ⇒ τ}{Γ}{Δ} α v = (λ {E} β v' → proj₁ v (renComp β α) v') , (
          (λ {Δ₁ Δ' : Con} (ρ : Ren Δ Δ₁) (ρ' : Ren Δ₁ Δ') (v₁ : Val Δ₁ σ) → 
            proof
-           renval ρ' {τ} (proj₁ v (ρ ∘ α) v₁)
+           renval  {τ} ρ' (proj₁ v (ρ ∘ α) v₁)
            ≅⟨ proj₂ v {Δ₁} {Δ'} (renComp ρ α) ρ' v₁ ⟩
-           proj₁ v (ρ' ∘ ρ ∘ α) (renval ρ' {σ} v₁)
+           proj₁ v (ρ' ∘ ρ ∘ α) (renval {σ} ρ' v₁)
            ∎))
-  renval α {σ ∧ τ} v = renval α {σ} (proj₁ v) , renval α {τ} (proj₂ v)
+  renval {σ ∧ τ} α v = renval {σ} α (proj₁ v) , renval {τ} α (proj₂ v)
 
 
 Σeq : {A : Set} {A' : Set} {B : A → Set} {B' : A' → Set} → {a : A} → {a' : A'} → a ≅ a' → B ≅ B' → {b : B a} → {b' : B' a'} → b ≅ b' → _,_ {B = B} a b ≅ _,_ {B = B'} a' b'
@@ -34,7 +34,7 @@ ir {p = refl} {q = refl} = refl
 fixedtypes : ∀{A A' A'' A''' : Set}{a : A}{a' : A'}{a'' : A''}{a''' : A'''} → {p : a ≅ a'} → {q : a'' ≅ a'''} → a' ≅ a'' → p ≅ q
 fixedtypes {p = refl} {q = refl} refl = refl
 
-renvalcomp : ∀{σ Γ Δ E} → (ρ : Ren Γ Δ) → (ρ' : Ren Δ E) → (v : Val Γ σ) → renval ρ' {σ} (renval ρ {σ} v) ≅ renval (ρ' ∘ ρ) {σ} v 
+renvalcomp : ∀{σ Γ Δ E} → (ρ : Ren Γ Δ) → (ρ' : Ren Δ E) → (v : Val Γ σ) → renval {σ} ρ' (renval {σ} ρ v) ≅ renval {σ} (ρ' ∘ ρ) v 
 renvalcomp {nat} ρ ρ' v = rennfcomp ρ' ρ v
 renvalcomp {σ ⇒ τ} ρ ρ' (f , p) = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
 renvalcomp {σ ∧ τ} ρ ρ' (a , b) = cong₂ _,_ (renvalcomp {σ} ρ ρ' a) (renvalcomp {τ} ρ ρ' b) 
@@ -63,7 +63,7 @@ _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
 
 
 renval<< : ∀{Γ Δ E σ} → (ρ : Ren Δ E) → (γ : Env Γ Δ) → (v : Val Δ σ) → ∀{τ}(x : Var (Γ < σ) τ) → 
-         (renval ρ {τ} ∘ (γ << v)) x ≅ ((λ {σ'} → renval ρ {σ'} ∘ γ) << renval ρ {σ} v) x
+         (renval {τ} ρ ∘ (γ << v)) x ≅ ((λ {σ'} → renval {σ'} ρ ∘ γ) << renval {σ} ρ v) x
 renval<< ρ γ v zero = refl
 renval<< ρ γ v (suc x) = refl
 
@@ -72,7 +72,7 @@ ifcong refl a = refl
 
 fcong : ∀{A B : Set} → {f f' : A → B} → f ≅ f' → (a : A) → f a ≅ f' a
 fcong refl a = refl
-{-
+
 
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
@@ -166,5 +166,3 @@ renvalnfold {σ} ρ z f (nsuc n) = proof
   ≅⟨ cong (proj₁ f ρ) (renvalnfold {σ} ρ z f n) ⟩
   proj₁ f ρ (nfold {σ} (renval {σ} ρ z) ((λ β → proj₁ f (β ∘ ρ)) , (λ ρ₁ ρ' v₁ → trans (proj₂ f (ρ₁ ∘ ρ) ρ' v₁) refl)) (renNf ρ n))
   ∎
-
--}
