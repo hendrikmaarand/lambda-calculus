@@ -1,4 +1,4 @@
-module MyLambda where
+module Lambda where
 
 open import Data.Bool
 open import Function

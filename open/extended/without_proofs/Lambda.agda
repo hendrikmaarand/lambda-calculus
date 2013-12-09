@@ -1,4 +1,4 @@
-module MyLambdaKripke where
+module Lambda where
 
 open import Data.Bool hiding (_∧_)
 open import Function

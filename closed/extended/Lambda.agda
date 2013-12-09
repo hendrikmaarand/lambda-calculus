@@ -1,4 +1,4 @@
-module MyLambda2 where
+module Lambda where
 
 open import Data.Bool hiding (_∧_; _∨_)
 open import Function

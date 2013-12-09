@@ -1,4 +1,4 @@
-module MyLambdaKripke2 where
+module Lambda where
 
 open import Data.Bool
 open import Function
@@ -405,4 +405,3 @@ subeval {Γ} {Δ} {E} {σ} α β (app t u) =
   (proj₁ (eval β (sub α t)) renId) (eval β (sub α u))
   ∎
 
--- define reify and reflect

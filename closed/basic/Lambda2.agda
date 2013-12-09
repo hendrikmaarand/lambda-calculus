@@ -1,6 +1,5 @@
-module MyLambdaOpen where
+module Lambda2 where
 
-open import Data.Bool
 open import Function
 open import Data.Nat hiding (_<_)
 open import Relation.Binary.HeterogeneousEquality
@@ -24,15 +23,15 @@ data Tm (Γ : Con) : Ty → Set where
   lam : ∀{σ τ} → Tm (Γ < σ) τ → Tm Γ (σ ⇒ τ)
   app : ∀{σ τ} → Tm Γ (σ ⇒ τ) → Tm Γ σ → Tm Γ τ
 
-Val : Con → Ty → Set
-Val Γ ι    = Bool
-Val Γ (σ ⇒ τ) = Val Γ σ → Val Γ τ
+Val : Ty → Set
+Val ι    = ℕ
+Val (σ ⇒ τ) = Val σ → Val τ
 
-Env : Con → Con → Set
-Env Γ Δ = ∀{σ} → Var Γ σ → Val Δ σ
+Env : Con → Set
+Env Γ = ∀{σ} → Var Γ σ → Val σ
 
 
-_<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
+_<<_ : ∀{Γ} → Env Γ → ∀{σ} → Val σ → Env (Γ < σ)
 (γ << v) zero = v
 (γ << v) (suc x) = γ x 
 
@@ -49,10 +48,10 @@ _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
 -- way, so to define a new longer environment we need to explain how
 -- to lockup variables in it.
 
-eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
-eval {Γ}{Δ} γ (var t) = γ t
-eval {Γ}{Δ} γ (lam t) = λ x → eval {Γ < _}{Δ} (γ << x) t
-eval {Γ}{Δ} γ (app t t') = eval {Γ}{Δ} γ t (eval {Γ}{Δ} γ t')
+eval : ∀{Γ σ} → Env Γ → Tm Γ σ → Val σ
+eval γ (var t) = γ t
+eval γ (lam t) = λ x → eval (γ << x) t
+eval γ (app t t') = eval γ t (eval γ t')
 
 
 -- We are working towards substitution - the operation of replacing
@@ -135,7 +134,6 @@ rencomp f g (lam y) = cong lam (trans (cong (λ (f : Ren _ _) → ren f y)
                                               (iext λ _ → ext (wkcomp f g)))
                                         (rencomp (wk f) (wk g) y))
 rencomp f g (app y y') = cong₂ app (rencomp f g y ) (rencomp f g y' )
-
 
 
 Sub : Con → Con → Set
@@ -225,28 +223,28 @@ subcomp f g (lam t)   = cong lam (trans (cong (λ (f : Sub _ _) → sub f t)
 
 
 
-wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
+wk<< : ∀{Γ Δ}(α : Ren Γ Δ)(β : Env Δ){σ}(v : Val σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
 wk<< α β v zero = proof v ≡⟨⟩ v ∎
 wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
 
-reneval : ∀{Γ Δ E σ}(α : Ren Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (β ∘ α) t ≅ (eval β ∘ ren α) t
-reneval {Γ} {Δ} {E} α β (var x) = proof β (α x) ≡⟨⟩ β (α x) ∎
-reneval {Γ} {Δ} {E} α β (lam t) = ext λ v →
+reneval : ∀{Γ Δ σ}(α : Ren Γ Δ)(β : Env Δ)(t : Tm Γ σ) → eval (β ∘ α) t ≅ (eval β ∘ ren α) t
+reneval α β (var x) = proof β (α x) ≡⟨⟩ β (α x) ∎
+reneval α β (lam t) = ext λ v →
   proof
   eval ((β ∘ α) << v) t 
-  ≅⟨ cong (λ (γ : Env _ _) → eval γ t) (iext λ σ → ext λ x → wk<< α β v x) ⟩
+  ≅⟨ cong (λ (γ : Env _) → eval γ t) (iext λ σ → ext λ x → wk<< α β v x) ⟩
   eval ((β << v) ∘ (wk α)) t
-  ≅⟨ reneval {Γ < _} {Δ < _} {E} (wk α) (β << v) t ⟩
+  ≅⟨ reneval (wk α) (β << v) t ⟩
   eval (β << v) (ren (wk α) t)
   ∎
-reneval {Γ} {Δ} {E} α β (app t u) = 
+reneval α β (app t u) = 
   proof
   eval (β ∘ α) t (eval (β ∘ α) u) 
-  ≅⟨ cong₂ _$_ (reneval {Γ} {Δ} {E} α β t) (reneval {Γ} {Δ} {E} α β u) ⟩
+  ≅⟨ cong₂ _$_ (reneval α β t) (reneval α β u) ⟩
   eval β (ren α t) (eval β (ren α u))
   ∎
 
-lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
+lifteval : ∀{Γ Δ σ τ}(α : Sub Γ Δ)(β : Env Δ)(v : Val σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
 lifteval α β v zero = proof v ≡⟨⟩ v ∎
 lifteval α β v (suc y) = 
   proof
@@ -255,20 +253,20 @@ lifteval α β v (suc y) =
   eval (β << v) (ren suc (α y))
   ∎
 
-subeval : ∀{Γ Δ E σ}(α : Sub Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (eval β ∘ α) t ≅ (eval β ∘ sub α) t
+subeval : ∀{Γ Δ σ}(α : Sub Γ Δ)(β : Env Δ)(t : Tm Γ σ) → eval (eval β ∘ α) t ≅ (eval β ∘ sub α) t
 subeval α β (var x) = proof eval β (α x) ≡⟨⟩ eval β (α x) ∎
-subeval {Γ} {Δ} {E} α β (lam t) = ext λ v → 
+subeval α β (lam t) = ext λ v → 
   proof
   eval ((eval β ∘ α) << v) t 
-  ≅⟨ cong (λ (γ : Env _ _) → eval γ t) (iext λ σ → ext (lifteval α β v)) ⟩
+  ≅⟨ cong (λ (γ : Env _) → eval γ t) (iext λ σ → ext (lifteval α β v)) ⟩
   eval (eval (β << v) ∘ lift α) t
-  ≅⟨ subeval {Γ < _} {Δ < _} {E} (lift α) (β << v) t ⟩
+  ≅⟨ subeval (lift α) (β << v) t ⟩
   eval (β << v) (sub (lift α) t)
   ∎
-subeval {Γ} {Δ} {E} α β (app t u) =
+subeval α β (app t u) = 
   proof
   eval (eval β ∘ α) t (eval (eval β ∘ α) u)
-  ≅⟨ cong₂ _$_ (subeval {Γ} {Δ} {E} α β t) (subeval {Γ} {Δ} {E} α β u) ⟩
+  ≅⟨ cong₂ _$_ (subeval α β t) (subeval α β u) ⟩
   eval β (sub α t) (eval β (sub α u))
   ∎
 
