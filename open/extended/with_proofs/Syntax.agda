@@ -329,20 +329,3 @@ subcomp f g (t ,, u) = cong₂ _,,_ (subcomp f g t) (subcomp f g u)
 subcomp f g (fst t) = cong fst (subcomp f g t)
 subcomp f g (snd t) = cong snd (subcomp f g t)
 
-
-data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
-  refl∼ : ∀{Γ}{σ} → (t : Tm Γ σ) → t ∼ t
-  conglam : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
-  beta : ∀{Γ σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
-  eta : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
-
-  {-
-  refl
-  sym
-  trans
-  beta 
-  eta 
-  congapp
-  conglam
-  congvar?
-  -}

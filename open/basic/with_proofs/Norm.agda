@@ -20,7 +20,7 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   conglam∼ : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
 
 idE : ∀{Γ} → Env Γ Γ
-idE {ε} ()
+idE {ε} () 
 idE {Γ < σ} zero = reflect σ (nvar zero)
 idE {Γ < σ} (suc x) = renval suc (idE x)
 
