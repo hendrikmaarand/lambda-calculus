@@ -52,11 +52,9 @@ renvaleval γ ρ (lam t) = Σeq
                    renval ρ₂ (eval (f << v) t)) (iext λ σ → ext λ x → renvalcomp ρ ρ₁ (γ x)) ))
 renvaleval {Γ}{Δ}{E} γ ρ (app {σ}{τ} t u) = proof
   proj₁ (eval (renval ρ ∘ γ) t) renId (eval (renval ρ ∘ γ) u) 
-  ≅⟨ {!proj₂ (eval γ t) ρ renId (eval γ u)!} ⟩
-  proj₁ (eval (renval ρ ∘ γ) t) renId (eval (renval ρ ∘ γ) u) 
-  ≅⟨ cong (λ (f : Val E (σ ⇒ τ)) → proj₁ f renId (eval (renval ρ ∘ γ) u)) (renvaleval γ ρ t) ⟩ 
+  ≅⟨ cong (λ f → proj₁ f renId (eval (renval ρ ∘ γ) u)) (renvaleval γ ρ t) ⟩ 
   proj₁ (renval ρ (eval γ t)) renId (eval (renval ρ ∘ γ) u) 
-  ≅⟨ {!cong (λ (f : Val E _ → Val _ _) → f (eval (renval ρ ∘ γ) u)) ?!} ⟩
+  ≅⟨ refl ⟩
   proj₁ (eval γ t) ρ (eval (renval ρ ∘ γ) u) 
   ≅⟨ cong (proj₁ (eval γ t) ρ) (renvaleval γ ρ u) ⟩
   proj₁ (eval γ t) ρ (renval ρ (eval γ u))
@@ -76,6 +74,15 @@ renvaleval γ ρ (rec z f n) = proof
   renval ρ (nfold (eval γ z) (eval γ f) (eval γ n))
   ∎ 
 
+renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
+renvalId {Γ} {nat} v = {!!}
+renvalId {Γ} {σ ⇒ σ₁} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
+
+evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Var (Γ < σ) τ) → (γ << eval γ u) v ≅ (eval γ ∘ (sub<< var u)) v
+evalsub<< γ u zero = refl
+evalsub<< γ u (suc v) = refl
+
+
 
 evalSim : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼ t' → _≅_ {A = Env _ _} γ {B = Env _ _} γ' → eval γ t ≅ eval γ' t'
 evalSim (refl∼ {t = t}) q = cong (λ (f : Env _ _) → eval f t) q 
@@ -83,9 +90,13 @@ evalSim (sym∼ p) q = sym (evalSim p (sym q))
 evalSim (trans∼ p p₁) q = trans (evalSim p q) (evalSim p₁ refl)
 evalSim {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
   eval ((renval renId ∘ γ) << eval γ u) t
-  ≅⟨ cong (λ (f : Env _ _) → eval (f << (eval γ u)) t) (iext λ σ' → {!!}) ⟩
+  ≅⟨ cong (λ (f : Env _ _) → eval (f << (eval γ u)) t) (iext λ σ' → ext λ x → renvalId (γ x)) ⟩
   eval (γ << eval γ u) t
-  ≅⟨ {!!} ⟩
+  ≅⟨ cong (λ (f : Env _ _) → eval f t) (iext λ σ' → ext λ x → evalsub<< γ u x) ⟩
+  eval (eval γ ∘ (sub<< var u)) t
+  ≅⟨ cong (λ (f : Env _ _) → eval (eval f ∘ (sub<< var u)) t) q ⟩
+  eval (eval γ' ∘ (sub<< var u)) t
+  ≅⟨ subeval  (sub<< var u) γ' t  ⟩
   eval γ' (sub (sub<< var u) t)
   ∎
 evalSim {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq 
@@ -109,8 +120,8 @@ first p = cong (reify _) (evalSim p refl)
 
 second : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 second (var x) = {!!}
-second (lam t) = {!!}
-second (app t t₁) = {!!}
+second (lam t) = trans∼ (conglam∼ (second t)) {!!}
+second (app t u) = trans∼ (congapp∼ (second t) (second u)) (trans∼ beta∼ {!!})
 second ze = refl∼
 second (sc t) = {!!}
 second (rec t t₁ t₂) = {!!}
