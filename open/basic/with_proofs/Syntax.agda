@@ -69,6 +69,23 @@ ren ρ (sc t) = sc (ren ρ t)
 ren ρ (rec z f n) = rec (ren ρ z) (ren ρ f) (ren ρ n)
 
 
+-- the identity renaming (maps variables to themselves)
+
+renId : ∀{Γ} → Ren Γ Γ
+renId = id
+
+-- composition of renamings (applies two renamings, one after the other)
+
+renComp : ∀{B Γ Δ} → Ren Γ Δ → Ren B Γ → Ren B Δ
+renComp f g = f ∘ g 
+
+
+cong₃ : ∀ {a b c d} {A : Set a} {B : A → Set b} {C : ∀ x → B x → Set c} {D : ∀ x y → C x y → Set d}
+          {x y z u v w}
+        (f : (x : A) (y : B x) (z : C x y) → D x y z) → x ≅ u → y ≅ v → z ≅ w  → f x y z ≅ f u v w
+cong₃ f refl refl refl = refl
+
+
 mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Nf Δ σ → Nf Γ σ
   renNf ρ (nlam n) = nlam (renNf (wk ρ) n)
@@ -80,17 +97,7 @@ mutual
   renNe ρ (nvar x) = nvar (ρ x)
   renNe ρ (napp t u) = napp (renNe ρ t) (renNf ρ u)
   renNe ρ (nrec z f n) = nrec (renNf ρ z) (renNf ρ f) (renNe ρ n)
-  
 
--- the identity renaming (maps variables to themselves)
-
-renId : ∀{Γ} → Ren Γ Γ
-renId = id
-
--- composition of renamings (applies two renamings, one after the other)
-
-renComp : ∀{B Γ Δ} → Ren Γ Δ → Ren B Γ → Ren B Δ
-renComp f g = f ∘ g 
 
 postulate ext : {A : Set}{B B' : A → Set}{f : ∀ a → B a}{g : ∀ a → B' a} →
                 (∀ a → f a ≅ g a) → f ≅ g
@@ -104,11 +111,6 @@ postulate iext : {A : Set}{B B' : A → Set}{f : ∀{a} → B a}{g : ∀{a} → 
 wkid : ∀{Γ σ τ}(x : Var (Γ < τ) σ) → wk renId x ≅ renId x
 wkid zero = refl
 wkid (suc y) = refl
-
-cong₃ : ∀ {a b c d} {A : Set a} {B : A → Set b} {C : ∀ x → B x → Set c} {D : ∀ x y → C x y → Set d}
-          {x y z u v w}
-        (f : (x : A) (y : B x) (z : C x y) → D x y z) → x ≅ u → y ≅ v → z ≅ w  → f x y z ≅ f u v w
-cong₃ f refl refl refl = refl
 
 
 -- if you rename a terms using the id renaming, then the term shouldn't change
@@ -170,6 +172,25 @@ mutual
   rennfcomp ρ' ρ nzero = refl
   rennfcomp ρ' ρ (nsuc v) = cong nsuc (rennfcomp ρ' ρ v)
 
+
+  
+mutual
+  renNfId : ∀{Γ σ} → (n : Nf Γ σ) → renNf renId n ≅ n
+  renNfId (nlam n) = proof
+    nlam (renNf (wk renId) n) 
+    ≅⟨ cong (λ (f : Ren _ _) → nlam (renNf f n)) (iext λ σ' → ext λ x → wkid x) ⟩ 
+    nlam (renNf renId n) 
+    ≅⟨ cong nlam (renNfId n) ⟩ 
+    nlam n
+    ∎
+  renNfId (ne x) = cong ne (renNeId x)
+  renNfId nzero = refl
+  renNfId (nsuc n) = cong nsuc (renNfId n) 
+  
+  renNeId : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
+  renNeId (nvar x) = refl
+  renNeId (napp t u) = cong₂ napp (renNeId t) (renNfId u)
+  renNeId (nrec z f n) = cong₃ nrec (renNfId z) (renNfId f) (renNeId n)
 
 Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ

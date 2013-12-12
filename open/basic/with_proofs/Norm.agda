@@ -27,10 +27,6 @@ idE {Γ < σ} (suc x) = renval suc (idE x)
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
-cong' : {A B : Set} → (f : A → B) → {a a' : A} → a ≅ a' → f a ≅ f a'
-cong' f refl = {!!}
-
-
 mutual
   embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
   embNf (nlam n) = lam (embNf n)
@@ -75,13 +71,12 @@ renvaleval γ ρ (rec z f n) = proof
   ∎ 
 
 renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
-renvalId {Γ} {nat} v = {!!}
+renvalId {Γ} {nat} v = renNfId v
 renvalId {Γ} {σ ⇒ σ₁} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
 
 evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Var (Γ < σ) τ) → (γ << eval γ u) v ≅ (eval γ ∘ (sub<< var u)) v
 evalsub<< γ u zero = refl
 evalsub<< γ u (suc v) = refl
-
 
 
 evalSim : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼ t' → _≅_ {A = Env _ _} γ {B = Env _ _} γ' → eval γ t ≅ eval γ' t'
@@ -120,7 +115,7 @@ first p = cong (reify _) (evalSim p refl)
 
 second : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 second (var x) = {!!}
-second (lam t) = trans∼ (conglam∼ (second t)) {!!}
+second (lam t) = trans∼ (conglam∼ (second t)) {!conglam∼ (second (embNf (reify _ (eval idE t))))!}
 second (app t u) = trans∼ (congapp∼ (second t) (second u)) (trans∼ beta∼ {!!})
 second ze = refl∼
 second (sc t) = {!!}
