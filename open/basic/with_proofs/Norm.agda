@@ -72,7 +72,7 @@ renvaleval γ ρ (rec z f n) = proof
 
 renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
 renvalId {Γ} {nat} v = renNfId v
-renvalId {Γ} {σ ⇒ σ₁} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
+renvalId {Γ} {σ ⇒ τ} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
 
 evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Var (Γ < σ) τ) → (γ << eval γ u) v ≅ (eval γ ∘ (sub<< var u)) v
 evalsub<< γ u zero = refl
@@ -115,7 +115,7 @@ first p = cong (reify _) (evalSim p refl)
 
 second : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 second (var x) = {!!}
-second (lam t) = trans∼ (conglam∼ (second t)) {!conglam∼ (second (embNf (reify _ (eval idE t))))!}
+second (lam t) = trans∼ (conglam∼ (second t)) ?
 second (app t u) = trans∼ (congapp∼ (second t) (second u)) (trans∼ beta∼ {!!})
 second ze = refl∼
 second (sc t) = {!!}
