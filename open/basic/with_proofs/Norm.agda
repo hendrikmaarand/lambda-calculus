@@ -8,6 +8,7 @@ open import Data.Product
 open import Function
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
+open import Data.Unit
 
 
 data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
@@ -108,20 +109,50 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
       fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
 
 
+Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
+Good nat t n = ⊤
+Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)
 
-first : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
-first p = cong (reify _) (evalSim p refl)
+GoodEnv : ∀{Γ Δ} → (γ : Env Γ Δ) → Set
+GoodEnv γ = ∀ {σ}(x : Var _ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) (var x)) (γ x) 
+
+_G<<_ : ∀{Γ Δ} → {γ : Env Γ Δ} → GoodEnv γ → ∀{σ} → {t : Tm Δ σ}{v : Val Δ σ} → Good σ t v → GoodEnv (γ << v)
+(γ G<< v) zero = v
+(γ G<< v) (suc x) = γ x 
+
+{-
+GoodEnv {ε} ε = ⊤
+GoodEnv {Γ < σ} (γ < v) = GoodEnv Γ γ × Good σ v
+-}
+
+lem : ∀{Γ σ} → {t u : Tm Γ σ} → t ∼ u → ∀{v} → Good σ t v → Good σ u v
+lem = {! !} 
+
+good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (gγ : GoodEnv γ) → (t : Tm Γ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) t) (eval γ t)
+good γ gγ (var x) = gγ x
+good γ gγ (lam t) = λ u v gv → lem {t = sub (sub<< (λ {σ} x → embNf (reify σ (γ x))) u) t}{u = app (sub (λ {σ} x → embNf (reify σ (γ x))) (lam t)) u} {!sym∼ beta∼!} {eval (γ << v) t} (good (γ << v) (gγ G<< gv) t)
+good γ gγ (app t u) = let 
+  gf = good γ gγ t
+  gv = good γ gγ u in
+  gf (sub (λ {σ} x → embNf (reify σ (γ x))) u) (eval γ u) gv
+good γ gγ ze = {!!}
+good γ gγ (sc t) = {!!}
+good γ gγ (rec t t₁ t₂) = {!!}
 
 
-second : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-second (var x) = {!!}
-second (lam t) = trans∼ (conglam∼ (second t)) ?
-second (app t u) = trans∼ (congapp∼ (second t) (second u)) (trans∼ beta∼ {!!})
-second ze = refl∼
-second (sc t) = {!!}
-second (rec t t₁ t₂) = {!!}
+soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
+soundness p = cong (reify _) (evalSim p refl)
+
+
+completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
+completeness (var x) = {!!}
+completeness (lam t) = trans∼ (conglam∼ (completeness t)) {!!}
+completeness (app t u) = trans∼ (congapp∼ (completeness t) (completeness u)) (trans∼ beta∼ {!!})
+completeness ze = refl∼
+completeness (sc t) = {!!}
+completeness (rec z f n) = {!!}
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-third t t' p = trans∼ (second t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (second t')))
+third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
 
 
