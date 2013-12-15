@@ -196,6 +196,28 @@ mutual
   rennfcomp ρ' ρ (t ,-, u) = cong₂ _,-,_ (rennfcomp ρ' ρ t) (rennfcomp ρ' ρ u)
 
 
+mutual
+  renNfId : ∀{Γ σ} → (n : Nf Γ σ) → renNf renId n ≅ n
+  renNfId (nlam n) = proof
+    nlam (renNf (wk renId) n) 
+    ≅⟨ cong (λ (f : Ren _ _) → nlam (renNf f n)) (iext λ σ' → ext λ x → wkid x) ⟩ 
+    nlam (renNf renId n) 
+    ≅⟨ cong nlam (renNfId n) ⟩ 
+    nlam n
+    ∎
+  renNfId (ne x) = cong ne (renNeId x)
+  renNfId nzero = refl
+  renNfId (nsuc n) = cong nsuc (renNfId n)
+  renNfId (a ,-, b) = cong₂ _,-,_ (renNfId a) (renNfId b)
+  
+  renNeId : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
+  renNeId (nvar x) = refl
+  renNeId (napp t u) = cong₂ napp (renNeId t) (renNfId u)
+  renNeId (nrec z f n) = cong₃ nrec (renNfId z) (renNfId f) (renNeId n)
+  renNeId (nfst n) = cong nfst (renNeId n)
+  renNeId (nsnd n) = cong nsnd (renNeId n)
+
+
 
 Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ

@@ -34,6 +34,12 @@ ir {p = refl} {q = refl} = refl
 fixedtypes : ∀{A A' A'' A''' : Set}{a : A}{a' : A'}{a'' : A''}{a''' : A'''} → {p : a ≅ a'} → {q : a'' ≅ a'''} → a' ≅ a'' → p ≅ q
 fixedtypes {p = refl} {q = refl} refl = refl
 
+fixedtypesleft : ∀{A A' A'' A''' : Set}{a : A}{a' : A'}{a'' : A''}{a''' : A'''} → {p : a ≅ a'} → {q : a'' ≅ a'''} → a ≅ a'' → p ≅ q
+fixedtypesleft {p = refl} {q = refl} refl = refl
+
+fixedtypesright : ∀{A A' A'' A''' : Set}{a : A}{a' : A'}{a'' : A''}{a''' : A'''} → {p : a ≅ a'} → {q : a'' ≅ a'''} → a' ≅ a''' → p ≅ q
+fixedtypesright {p = refl} {q = refl} refl = refl
+
 renvalcomp : ∀{σ Γ Δ E} → (ρ : Ren Γ Δ) → (ρ' : Ren Δ E) → (v : Val Γ σ) → renval {σ} ρ' (renval {σ} ρ v) ≅ renval {σ} (ρ' ∘ ρ) v 
 renvalcomp {nat} ρ ρ' v = rennfcomp ρ' ρ v
 renvalcomp {σ ⇒ τ} ρ ρ' (f , p) = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
