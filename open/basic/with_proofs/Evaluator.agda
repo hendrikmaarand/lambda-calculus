@@ -9,18 +9,19 @@ open ≅-Reasoning renaming (begin_ to proof_)
 
 mutual 
   Val : Con → Ty → Set
-  Val Γ nat    = Nf Γ nat
+  Val Γ ι    = Nf Γ ι
   Val Γ (σ ⇒ τ) = Σ (∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ) λ f → ∀{Δ Δ'}(ρ : Ren Γ Δ)(ρ' : Ren Δ Δ')(v : Val Δ σ) → renval ρ' (f ρ v) ≅ f (ρ' ∘ ρ) (renval ρ' v)
 
   renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
-  renval {Γ} {Δ} {nat} α v = renNf α v
+  renval {Γ} {Δ} {ι} α v = renNf α v
   renval {Γ} {Δ} {σ ⇒ τ} α v = (λ {E} β v' → proj₁ v (renComp β α) v') , 
-         (λ {Δ₁ Δ' : Con} (ρ : {σ₁ : Ty} → Var Δ σ₁ → Var Δ₁ σ₁) (ρ' : {σ₁ : Ty} → Var Δ₁ σ₁ → Var Δ' σ₁) (v₁ : Val Δ₁ σ) → 
+         (λ {Δ₁ Δ' : Con} (ρ : Ren Δ Δ₁) (ρ' : Ren Δ₁ Δ') (v₁ : Val Δ₁ σ) → 
            proof
            renval ρ' (proj₁ v (ρ ∘ α) v₁)
            ≅⟨ proj₂ v {Δ₁} {Δ'} (renComp ρ α) ρ' v₁ ⟩
            proj₁ v (ρ' ∘ ρ ∘ α) (renval ρ' v₁)
            ∎)
+  
 
 
 Σeq : {A : Set} {A' : Set} {B : A → Set} {B' : A' → Set} → {a : A} → {a' : A'} → a ≅ a' → B ≅ B' → {b : B a} → {b' : B' a'} → b ≅ b' → _,_ {B = B} a b ≅ _,_ {B = B'} a' b'
@@ -40,8 +41,8 @@ fixedtypesright {p = refl} {q = refl} refl = refl
 
 
 renvalcomp : ∀{Γ Δ E σ} → (ρ : Ren Γ Δ) → (ρ' : Ren Δ E) → (v : Val Γ σ) → renval ρ' (renval ρ v) ≅ renval (ρ' ∘ ρ) v 
-renvalcomp {Γ} {Δ} {E} {nat} ρ ρ' v = rennfcomp ρ' ρ v
-renvalcomp {Γ} {Δ} {E} {σ ⇒ σ₁} ρ ρ' (f , p) = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
+renvalcomp {Γ} {Δ} {E} {ι} ρ ρ' v = rennfcomp ρ' ρ v
+renvalcomp {Γ} {Δ} {E} {σ ⇒ τ} ρ ρ' (f , p) = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
 
 
 Env : Con → Con → Set
@@ -78,11 +79,11 @@ fcong refl a = refl
 
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
-  reify nat v = v
+  reify ι v = v
   reify (σ ⇒ τ) v = nlam (reify τ (proj₁ v suc (reflect σ (nvar zero))))
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
-  reflect nat n = ne n
+  reflect ι n = ne n
   reflect (σ ⇒ τ) n = (λ α v → reflect τ (napp (renNe α n) (reify σ v))) , (λ ρ ρ' v → 
     proof
     renval ρ' (reflect τ (napp (renNe ρ n) (reify σ v)))
@@ -95,7 +96,7 @@ mutual
     ∎)
   
   renvalReflect : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Ne Γ σ) → renval ρ (reflect σ n) ≅ reflect σ (renNe ρ n)
-  renvalReflect {Γ} {Δ} {nat} ρ n = refl
+  renvalReflect {Γ} {Δ} {ι} ρ n = refl
   renvalReflect {Γ} {Δ} {σ ⇒ τ} ρ n = Σeq 
     (iext λ _ → ext λ (α : Ren _ _) → ext λ v → proof
       reflect τ (napp (renNe (α ∘ ρ) n) (reify σ v))
@@ -116,7 +117,7 @@ mutual
       ∎)))
 
   reifyRenval : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Val Γ σ) → renNf ρ (reify σ n) ≅ reify σ (renval ρ n)
-  reifyRenval {Γ} {Δ} {nat} ρ n = proof renNf ρ n ≡⟨⟩ renNf ρ n ∎
+  reifyRenval {Γ} {Δ} {ι} ρ n = refl
   reifyRenval {Γ} {Δ} {σ ⇒ τ} ρ n = proof
     nlam (renNf (wk ρ) (reify τ (proj₁ n suc (reflect σ (nvar zero)))))
     ≅⟨ cong nlam (reifyRenval (wk ρ) (proj₁ n suc (reflect σ (nvar zero)))) ⟩
@@ -126,41 +127,6 @@ mutual
     ≅⟨ cong nlam (cong (reify τ) (cong₂ (proj₁ n) refl (renvalReflect (wk ρ) (nvar zero)))) ⟩
     nlam (reify τ (proj₁ n (suc ∘ ρ) (reflect σ (nvar zero))))
     ∎
-
-
-nfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
-nfold z f (ne x) = reflect _ (nrec (reify _ z) (reify _ f) x)
-nfold z f nzero = z
-nfold z f (nsuc n) = proj₁ f renId (nfold z f n)
-
-renvalnfold : ∀{Γ Δ σ} (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ))(n : Val Γ nat) → renval ρ (nfold z f n) ≅ 
-              nfold (renval ρ z) (renval ρ f) (renval ρ n)
-renvalnfold {_}{_}{σ} ρ z f (ne x) = proof
-  renval ρ (reflect σ (nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x))
-  ≅⟨ renvalReflect ρ ((nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x)) ⟩
-  reflect σ (renNe ρ (nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x))
-  ≅⟨ cong (reflect σ) (cong₃ nrec 
-    (reifyRenval ρ z) 
-    (cong nlam (proof
-          renNf (wk ρ) (reify σ (proj₁ f suc (reflect σ (nvar zero))))
-          ≅⟨ reifyRenval (wk ρ) (proj₁ f suc (reflect σ (nvar zero))) ⟩
-          reify σ (renval (wk ρ) (proj₁ f suc (reflect σ (nvar zero))))
-          ≅⟨ cong (reify σ) (proj₂ f suc (wk ρ) (reflect σ (nvar zero))) ⟩
-          reify σ (proj₁ f ((wk ρ) ∘ suc) (renval (wk ρ) (reflect σ (nvar zero))))
-          ≅⟨ cong (reify σ) (cong₂ (proj₁ f) refl (renvalReflect (wk ρ) (nvar zero))) ⟩
-          reify σ (proj₁ f (suc ∘ ρ) (reflect σ (nvar zero)))
-          ∎)) 
-    (proof renNe ρ x ≡⟨⟩ renNe ρ x ∎)) ⟩
-  reflect σ (nrec (reify σ (renval ρ z)) (nlam (reify σ (proj₁ f (suc ∘ ρ) (reflect σ (nvar zero))))) (renNe ρ x))
-  ∎
-renvalnfold ρ z f nzero = proof renval ρ z ≡⟨⟩ renval ρ z ∎
-renvalnfold ρ z f (nsuc n) = proof
-  renval ρ (proj₁ f renId (nfold z f n)) 
-  ≅⟨ proj₂ f renId ρ (nfold z f n) ⟩
-  proj₁ f ρ (renval ρ (nfold z f n))
-  ≅⟨ cong (proj₁ f ρ) (renvalnfold ρ z f n) ⟩
-  proj₁ f ρ (nfold (renval ρ z) ((λ β → proj₁ f (β ∘ ρ)) , (λ ρ₁ ρ' v₁ → trans (proj₂ f (ρ₁ ∘ ρ) ρ' v₁) refl)) (renNf ρ n))
-  ∎
 
 
 mutual
@@ -177,9 +143,6 @@ mutual
       eval ((renval (ρ' ∘ ρ) ∘ γ) << renval ρ' v) t
       ∎)
   eval γ (app t u) = proj₁ (eval γ t) renId (eval γ u)     
-  eval γ ze = nzero
-  eval γ (sc t) = nsuc (eval γ t)
-  eval γ (rec z f n) = nfold (eval γ z) (eval γ f) (eval γ n)
   
   evallem : ∀{Γ Δ Δ₁ σ} → (γ : Env Γ Δ)(ρ : Ren Δ Δ₁)(t : Tm Γ σ) → renval ρ (eval γ t) ≅ eval (renval ρ ∘ γ) t
   evallem γ ρ (var x) = proof renval ρ (γ x) ≡⟨⟩ renval ρ (γ x) ∎
@@ -212,19 +175,7 @@ mutual
     ≅⟨ cong (λ f → f (eval (renval ρ ∘ γ) u)) (fcong (ifcong (cong proj₁ (evallem γ ρ t)) Δ) id)  ⟩
     proj₁ (eval (renval ρ ∘ γ) t) id (eval (renval ρ ∘ γ) u)
     ∎
-  evallem γ ρ ze = proof nzero ≡⟨⟩ nzero ∎
-  evallem γ ρ (sc n) = proof
-    nsuc (renNf ρ (eval γ n)) 
-    ≅⟨ cong nsuc (evallem γ ρ n) ⟩
-    nsuc (eval (renval ρ ∘ γ) n)
-    ∎
-  evallem γ ρ (rec z f n) = proof
-    renval ρ (nfold (eval γ z) (eval γ f) (eval γ n)) 
-    ≅⟨ renvalnfold ρ (eval γ z) (eval γ f) (eval γ n) ⟩
-    nfold (renval ρ (eval γ z)) (renval ρ (eval γ f)) (renval ρ (eval γ n))
-    ≅⟨ cong₃ nfold (evallem γ ρ z) (evallem γ ρ f) (evallem γ ρ n) ⟩
-    nfold (eval (renval ρ ∘ γ) z) (eval (renval ρ ∘ γ) f) (eval (renval ρ ∘ γ) n)
-    ∎
+ 
 
 
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
@@ -264,17 +215,6 @@ reneval {_}{_}{E} α β (app t u) = proof
   ≅⟨ cong (λ f → f (eval β (ren α u))) (fcong (ifcong (cong proj₁ (reneval α β t)) E) id) ⟩
   (proj₁ (eval β (ren α t)) renId) (eval β (ren α u))           
   ∎
-reneval α β ze = proof nzero ≡⟨⟩ nzero ∎
-reneval α β (sc n) = proof
-  nsuc (eval (β ∘ α) n) 
-  ≅⟨ cong nsuc (reneval α β n) ⟩
-  nsuc (eval β (ren α n))
-  ∎ 
-reneval α β (rec z f n) = proof
-   nfold (eval (β ∘ α) z) (eval (β ∘ α) f) (eval (β ∘ α) n) 
-   ≅⟨ cong₃ nfold (reneval α β z) (reneval α β f) (reneval α β n) ⟩
-   nfold (eval β (ren α z)) (eval β (ren α f)) (eval β (ren α n))
-   ∎
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
@@ -323,16 +263,5 @@ subeval {_}{_}{E} α β (app t u) = proof
   (proj₁ (eval (eval β ∘ α) t) renId) (eval β (sub α u))
   ≅⟨ cong (λ f → f (eval β (sub α u))) (fcong (ifcong (cong proj₁ (subeval α β t)) E) id) ⟩
   (proj₁ (eval β (sub α t)) renId) (eval β (sub α u))
-  ∎
-subeval α β ze = proof nzero ≡⟨⟩ nzero ∎
-subeval α β (sc n) = proof 
-  nsuc (eval (eval β ∘ α) n) 
-  ≅⟨ cong nsuc (subeval α β n) ⟩
-  nsuc (eval β (sub α n))
-  ∎
-subeval α β (rec z f n) = proof
-  nfold (eval (eval β ∘ α) z) (eval (eval β ∘ α) f) (eval (eval β ∘ α) n)
-  ≅⟨ cong₃ nfold (subeval α β z) (subeval α β f) (subeval α β n) ⟩
-  nfold (eval β (sub α z)) (eval β (sub α f)) (eval β (sub α n))
   ∎
 
