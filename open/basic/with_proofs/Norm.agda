@@ -95,40 +95,64 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
       fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
 
 
-Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
-Good ι t n = ⊤
-Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)
+{-Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
+Good ι t n = t ∼ embNf (reify ι n)
+Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)-}
+
+Good : ∀{Γ} σ → Val Γ σ → Set
+Good ι n = Σ (Tm _ ι) λ t → t ∼ embNf n
+Good (σ ⇒ τ) f = ∀ v → Good σ v → Good τ (proj₁ f id v)
+
+PGood : ∀{Γ} σ → Val Γ σ → Set
+PGood σ v = Good σ v × Σ (Tm _ σ) λ t → t ∼ embNf (reify σ v)
+
+--Good' : ∀{Γ} σ (t : Tm Γ σ)(v : Val Γ σ) → Set
+--Good' σ t v = Good σ t v × t ∼ embNf (reify σ v)
 
 GoodEnv : ∀{Γ Δ} → (γ : Env Γ Δ) → Set
-GoodEnv γ = ∀ {σ}(x : Var _ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) (var x)) (γ x) 
+GoodEnv γ = {!!} --∀ {σ}(x : Var _ σ) → Good' σ (sub (λ {σ} x → embNf (reify σ (γ x))) (var x)) (γ x) 
 
-_G<<_ : ∀{Γ Δ} → {γ : Env Γ Δ} → GoodEnv γ → ∀{σ} → {t : Tm Δ σ}{v : Val Δ σ} → Good σ t v → GoodEnv (γ << v)
-(γ G<< v) zero = v
-(γ G<< v) (suc x) = γ x 
+--_G<<_ : ∀{Γ Δ} → {γ : Env Γ Δ} → GoodEnv γ → ∀{σ} → {t : Tm Δ σ}{v : Val Δ σ} → Good' σ t v → GoodEnv (γ << v)
+--(γ G<< v) zero = {!!}
+--(γ G<< v) (suc x) = γ x 
 
 {-
 GoodEnv {ε} ε = ⊤
 GoodEnv {Γ < σ} (γ < v) = GoodEnv Γ γ × Good σ v
 -}
+{-
+lem' : ∀{Γ σ} → {t : Tm Γ σ} → ∀{v v'} → v ≅ v' → Good σ t v → Good σ t v'
+lem' refl g = g
 
 
 lem : ∀{Γ σ} → {t u : Tm Γ σ} → t ∼ u → ∀{v} → Good σ t v → Good σ u v
-lem {Γ} {ι} p g = {!!}
-lem {Γ} {σ ⇒ τ} p g = {!!} 
+lem {Γ} {ι} p g = trans∼ (sym∼ p) g
+lem {Γ} {σ ⇒ τ} p {f} g = λ a v q → lem {σ = τ} (congapp∼ p (refl∼ {t = a})) {proj₁ f id v} (g a v q)
+
 
 
 good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (gγ : GoodEnv γ) → (t : Tm Γ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) t) (eval γ t)
-good γ gγ (var x) = gγ x
-good γ gγ (lam t) = λ u v gv → lem {t = sub (sub<< (λ {σ} x → embNf (reify σ (γ x))) u) t}{u = app (sub (λ {σ} x → embNf (reify σ (γ x))) (lam t)) u} {!sym∼ beta∼!} {eval (γ << v) t} (good (γ << v) (gγ G<< gv) t)
+good γ gγ (var x) = {!!} -- gγ x
+good γ gγ (lam t) = λ u v gv → lem' {!!} (lem {!!} (good (γ << v) {!!} t))
+--λ u v gv → lem {t = sub (sub<< (λ {σ} x → embNf (reify σ (γ x))) u) t}{u = app (sub (λ {σ} x → embNf (reify σ (γ x))) (lam t)) u} {!sym∼ beta∼!} {eval (γ << v) t} (good (γ << v) (gγ G<< gv) t)
 good γ gγ (app t u) = let 
   gf = good γ gγ t
   gv = good γ gγ u in
   gf (sub (λ {σ} x → embNf (reify σ (γ x))) u) (eval γ u) gv
+-}
+
+good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (t : Tm Γ σ) → PGood σ (eval γ t)
+good γ (var x) = {!!}
+good γ (lam t) = (λ v gv → {!proj₁ (good (γ << v) t)!}) , ({!!} , {!!})
+good γ (app t u) = let
+  gf = good γ t
+  gv = good γ u in
+  proj₁ gf (eval γ u) (proj₁ gv) , (app (proj₁ (proj₂ gf)) (proj₁ (proj₂ gv)) , trans∼ (congapp∼ (proj₂ (proj₂ gf)) (proj₂ (proj₂ gv))) (trans∼ beta∼ {!!}))
+  
 
 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
-
 
 completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 completeness (var x) = {!!}
