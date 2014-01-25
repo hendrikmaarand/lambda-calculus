@@ -20,10 +20,14 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   congapp∼ : ∀{Γ σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
   conglam∼ : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
 
+
 idE : ∀{Γ} → Env Γ Γ
 idE {ε} () 
 idE {Γ < σ} zero = reflect σ (nvar zero)
 idE {Γ < σ} (suc x) = renval suc (idE x)
+
+--eq-idE : ∀{Γ} → Set
+--eq-idE {Γ} = ∀{σ} → idE {Γ} ≅ idE {Γ}
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
@@ -95,70 +99,99 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
       fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
 
 
-{-Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
-Good ι t n = t ∼ embNf (reify ι n)
-Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)-}
-
-Good : ∀{Γ} σ → Val Γ σ → Set
-Good ι n = Σ (Tm _ ι) λ t → t ∼ embNf n
-Good (σ ⇒ τ) f = ∀ v → Good σ v → Good τ (proj₁ f id v)
-
-PGood : ∀{Γ} σ → Val Γ σ → Set
-PGood σ v = Good σ v × Σ (Tm _ σ) λ t → t ∼ embNf (reify σ v)
-
---Good' : ∀{Γ} σ (t : Tm Γ σ)(v : Val Γ σ) → Set
---Good' σ t v = Good σ t v × t ∼ embNf (reify σ v)
-
-GoodEnv : ∀{Γ Δ} → (γ : Env Γ Δ) → Set
-GoodEnv γ = {!!} --∀ {σ}(x : Var _ σ) → Good' σ (sub (λ {σ} x → embNf (reify σ (γ x))) (var x)) (γ x) 
-
---_G<<_ : ∀{Γ Δ} → {γ : Env Γ Δ} → GoodEnv γ → ∀{σ} → {t : Tm Δ σ}{v : Val Δ σ} → Good' σ t v → GoodEnv (γ << v)
---(γ G<< v) zero = {!!}
---(γ G<< v) (suc x) = γ x 
-
-{-
-GoodEnv {ε} ε = ⊤
-GoodEnv {Γ < σ} (γ < v) = GoodEnv Γ γ × Good σ v
--}
-{-
-lem' : ∀{Γ σ} → {t : Tm Γ σ} → ∀{v v'} → v ≅ v' → Good σ t v → Good σ t v'
-lem' refl g = g
-
-
-lem : ∀{Γ σ} → {t u : Tm Γ σ} → t ∼ u → ∀{v} → Good σ t v → Good σ u v
-lem {Γ} {ι} p g = trans∼ (sym∼ p) g
-lem {Γ} {σ ⇒ τ} p {f} g = λ a v q → lem {σ = τ} (congapp∼ p (refl∼ {t = a})) {proj₁ f id v} (g a v q)
 
 
 
-good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (gγ : GoodEnv γ) → (t : Tm Γ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) t) (eval γ t)
-good γ gγ (var x) = {!!} -- gγ x
-good γ gγ (lam t) = λ u v gv → lem' {!!} (lem {!!} (good (γ << v) {!!} t))
---λ u v gv → lem {t = sub (sub<< (λ {σ} x → embNf (reify σ (γ x))) u) t}{u = app (sub (λ {σ} x → embNf (reify σ (γ x))) (lam t)) u} {!sym∼ beta∼!} {eval (γ << v) t} (good (γ << v) (gγ G<< gv) t)
-good γ gγ (app t u) = let 
-  gf = good γ gγ t
-  gv = good γ gγ u in
-  gf (sub (λ {σ} x → embNf (reify σ (γ x))) u) (eval γ u) gv
+{-mutual
+  V⟦_⟧_R_⇓_ : ∀{Γ Δ} σ → (t : Tm Γ σ) → (γ : Env Γ Δ) → (v : Val Δ σ) → Set
+  V⟦ ι ⟧ t R γ ⇓ v = embNf (reify ι v) ∼ sub (λ {σ} → embNf ∘ reify σ ∘ γ) t
+  V⟦ σ ⇒ τ ⟧ t R γ ⇓ f = ∀{Δ} (ρ : Ren _ Δ) → (u : Tm _ σ) → (v : Val Δ σ) → V⟦ σ ⟧ u R renval ρ ∘ γ ⇓ v →
+                                C⟦ τ ⟧ app t u R renval ρ ∘ γ ⇓ proj₁ f ρ v 
+
+  C⟦_⟧_R_⇓_ : ∀{Γ Δ} σ → (t : Tm Γ σ) → (γ : Env Γ Δ) → (v : Val Δ σ) → Set
+  C⟦ σ ⟧ t R γ ⇓ v =  V⟦ σ ⟧ t R γ ⇓ v × embNf (reify σ v) ∼ (sub (λ {σ} → embNf ∘ reify σ ∘ γ) t)  
 -}
 
-good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (t : Tm Γ σ) → PGood σ (eval γ t)
-good γ (var x) = {!!}
-good γ (lam t) = (λ v gv → {!proj₁ (good (γ << v) t)!}) , ({!!} , {!!})
-good γ (app t u) = let
-  gf = good γ t
-  gv = good γ u in
-  proj₁ gf (eval γ u) (proj₁ gv) , (app (proj₁ (proj₂ gf)) (proj₁ (proj₂ gv)) , trans∼ (congapp∼ (proj₂ (proj₂ gf)) (proj₂ (proj₂ gv))) (trans∼ beta∼ {!!}))
-  
 
 
+mutual
+  _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
+  ι ∋ t R v = t ∼ embNf (reify ι v)
+  (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u S proj₁ f ρ v
+
+  _∋_S_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
+  σ ∋ t S v = σ ∋ t R v × t ∼ embNf (reify σ v)
+
+_E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
+ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x S η x
+
+
+
+≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
+≅to∼ refl = refl∼
+
+
+ren∼ : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {ρ ρ' : Ren Γ Δ} → _≅_ {A = Ren _ _} ρ {B = Ren _ _} ρ' → t ∼ t' → ren ρ t ∼ ren ρ' t'
+ren∼ refl refl∼ = refl∼
+ren∼ p (sym∼ q) = sym∼ (ren∼ (sym p) q)
+ren∼ p (trans∼ q q₁) = trans∼ (ren∼ p q) (ren∼ refl q₁)
+ren∼ {ρ = ρ} refl (beta∼ {t = t}{u = u}) = trans∼ (beta∼ {t = ren (wk ρ) t}{u = ren ρ u}) {!!} 
+ren∼ p eta∼ = {!!}
+ren∼ p (congapp∼ q q₁) = congapp∼ (ren∼ p q) (ren∼ p q₁)
+ren∼ p (conglam∼ q) = conglam∼ (ren∼ (cong wk p) q)
+
+
+R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
+R∼ {Γ} {ι} r p = trans∼ (sym∼ p) r
+R∼ {Γ} {σ ⇒ τ} r p = λ ρ u v' r' → let a , b = r ρ u v' r' in
+  R∼ a (congapp∼ (ren∼ refl p) refl∼) , trans∼ (congapp∼ (sym∼ (ren∼ refl p)) refl∼) b
+
+
+S∼ : ∀{Γ σ} → (t t' : Tm Γ σ) → (v : Val Γ σ) → σ ∋ t S v → t ∼ t' → σ ∋ t' S v
+S∼ {Γ} {ι} t t' v (a , b) p = trans∼ (sym∼ p) a , trans∼ (sym∼ p) b 
+S∼ {Γ} {σ ⇒ τ} t t' v (a , b) p = (λ ρ u v' p' → S∼ {σ = τ} (app (ren ρ t) u) (app (ren ρ t') u) (proj₁ v ρ v') (a ρ u v' p') 
+                                                     (congapp∼ (ren∼ refl p) refl∼)) , 
+                                   trans∼ (sym∼ p) b
+
+
+lemma : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t S (eval η t)
+lemma (var x) ρ η e = e x
+lemma (lam t) ρ η e = (λ ρ' u v p → {!lemma t!} , {!!}) , 
+                                    conglam∼ (≅to∼ {!!})
+--proj₁ (lemma t (sub<< (ren ρ' ∘ ρ) u) ((renval ρ' ∘ η) << v) ?) , ?
+lemma (app t u) ρ η e = let 
+  p   , q   = lemma t ρ η e
+  p'  , q'  = lemma u ρ η e
+  p'' , q'' = (p id (sub ρ u) (eval η u) p') in
+              R∼ p'' (≅to∼ (cong (λ x → app x (sub ρ u)) (renid (sub ρ t)))) ,
+              trans∼ (congapp∼ (≅to∼ (sym (renid (sub ρ t)))) refl∼) q''
+
+
+
+
+
+{-
+
+completeness_lemma : ∀{Γ Δ σ} → (t : Tm Γ σ) → (γ : Env Γ Δ) → C⟦ σ ⟧ t R γ ⇓ (eval γ t)  
+completeness_lemma (var x) γ = {!!}
+completeness_lemma (lam t) γ = (λ ρ u v p → {!completeness_lemma t ((renval ρ ∘ γ) << v)!}) , {!!}
+completeness_lemma (app t u) γ = let
+  f , p = completeness_lemma t γ
+  v , q = completeness_lemma u γ
+  x , y = f renId u (eval γ u) {!!} in
+    {!x ,  !}
+
+-}
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
-
+  
 completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness (var x) = {!!}
+completeness (var x) = {! !}
 completeness (lam t) = trans∼ (conglam∼ (completeness t)) {!!}
 completeness (app t u) = trans∼ (congapp∼ (completeness t) (completeness u)) (trans∼ beta∼ {!!})
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+
+
 

@@ -74,6 +74,7 @@ renval<< ρ γ v (suc x) = refl
 ifcong : {A : Set}{B : A → Set}{f f' : {a : A} → B a} → _≅_ {_}{ {a : A} → B a } f {_} { {a : A} → B a } f' → (a : A) → f {a} ≅ f' {a}
 ifcong refl a = refl
 
+
 fcong : ∀{A B : Set} → {f f' : A → B} → f ≅ f' → (a : A) → f a ≅ f' a
 fcong refl a = refl
 
@@ -177,7 +178,7 @@ mutual
     ∎
  
 
-
+ 
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
 wk<< α β v zero = proof v ≡⟨⟩ v ∎
 wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
