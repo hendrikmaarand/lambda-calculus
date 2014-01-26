@@ -74,17 +74,17 @@ renvaleval {σ = σ} γ ρ (rec z f n) = proof
                                (λ {Δ₁} {Δ'} ρ₁ ρ' v₁ → trans (proj₂ (eval γ f) (ρ₁ ∘ ρ) ρ' v₁) refl)) 
          (renNf ρ (eval γ n))
   ≅⟨ sym (renvalnfold ρ (eval γ z) (eval γ f) (eval γ n)) ⟩
-  renval {σ} ρ (nfold (eval γ z) (eval γ f) (eval γ n))
+  renval {σ} ρ (nfold {σ = σ} (eval γ z) (eval γ f) (eval γ n))
   ∎ 
-renvaleval γ ρ (a ,, b) = {!!}
+renvaleval γ ρ (a ,, b) = Σeq (renvaleval γ ρ a) refl (renvaleval γ ρ b)
 renvaleval γ ρ (fst a) = {!!}
 renvaleval γ ρ (snd a) = {!!}
 
 
-renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
+renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval {σ = σ} renId v ≅ v
 renvalId {Γ} {nat} v = renNfId v
 renvalId {Γ} {σ ⇒ τ} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
-renvalId {Γ} {σ ∧ τ} v = {!!}
+renvalId {Γ} {σ ∧ τ} v = Σeq (renvalId {σ = σ} (proj₁ v)) refl (renvalId {σ = τ} (proj₂ v))
 
 evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Var (Γ < σ) τ) → (γ << eval γ u) v ≅ (eval γ ∘ (sub<< var u)) v
 evalsub<< γ u zero = refl
@@ -95,9 +95,9 @@ evalSim : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼
 evalSim (refl∼ {t = t}) q = cong (λ (f : Env _ _) → eval f t) q 
 evalSim (sym∼ p) q = sym (evalSim p (sym q))
 evalSim (trans∼ p p₁) q = trans (evalSim p q) (evalSim p₁ refl)
-evalSim {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
-  eval ((renval renId ∘ γ) << eval γ u) t
-  ≅⟨ cong (λ (f : Env _ _) → eval (f << (eval γ u)) t) (iext λ σ' → ext λ x → renvalId (γ x)) ⟩
+evalSim {σ = σ} {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
+  eval ((λ {σ'} → renval {σ = σ'} renId ∘ γ) << eval γ u) t
+  ≅⟨ cong (λ (f : Env _ _) → eval (f << (eval γ u)) t) (iext λ σ' → ext λ x → renvalId {σ = σ'} (γ x)) ⟩
   eval (γ << eval γ u) t
   ≅⟨ cong (λ (f : Env _ _) → eval f t) (iext λ σ' → ext λ x → evalsub<< γ u x) ⟩
   eval (eval γ ∘ (sub<< var u)) t
@@ -106,55 +106,20 @@ evalSim {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
   ≅⟨ subeval  (sub<< var u) γ' t  ⟩
   eval γ' (sub (sub<< var u) t)
   ∎
-evalSim {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq 
+evalSim {σ = σ ⇒ τ} {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq 
   (iext λ Δ → ext λ (ρ : Ren _ _) → ext λ v → lem Δ ρ v) 
   refl 
-  ((iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypesleft (cong (renval ρ') (lem Δ ρ v)))) where 
-         lem : ∀ Δ (ρ : Ren _ Δ) v → proj₁ (eval γ t) ρ v ≅ proj₁ (eval ((λ {σ} x → renval ρ (γ' x)) << v) (ren (λ {σ} → suc) t)) (λ {σ} x → x) v
-         lem Δ ρ v = trans (trans (cong (λ (f : Env _ _) → proj₁ (eval f t) ρ v) q) (sym (cong (λ f → proj₁ f id v) (renvaleval γ' ρ t)))) (cong (λ f → proj₁ f id v) (reneval suc ((λ {σ} x → renval ρ (γ' x)) << v) t))
-evalSim (congapp∼ p p₁) (q) = cong₂ (λ f g → proj₁ f renId g) (evalSim p q) (evalSim p₁ q)
-evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq 
-  (iext λ Δ → ext λ (α : Ren _ _) → ext λ v → evalSim p (iext λ σ₁ → cong (λ (f : Env _ _) → (renval α ∘ f) << v) q)) 
+  ((iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypesleft (cong (renval {σ = τ} ρ') (lem Δ ρ v)))) where 
+         lem : ∀ Δ (ρ : Ren _ Δ) v → proj₁ (eval γ t) ρ v ≅ proj₁ (eval ((λ {σ} x → renval {σ = σ} ρ (γ' x)) << v) (ren (λ {σ} → suc) t)) (λ {σ} x → x) v
+         lem Δ ρ v = trans (trans (cong (λ (f : Env _ _) → proj₁ (eval f t) ρ v) q) (sym (cong (λ f → proj₁ f id v) (renvaleval γ' ρ t)))) (cong (λ f → proj₁ f id v) (reneval suc ((λ {σ} x → renval {σ = σ} ρ (γ' x)) << v) t))
+evalSim (congapp∼ p p₁) q = cong₂ (λ f g → proj₁ f renId g) (evalSim p q) (evalSim p₁ q)
+evalSim {σ = σ ⇒ τ} (conglam∼ {t = t}{t' = t'} p) q = Σeq 
+  (iext λ Δ → ext λ (α : Ren _ _) → ext λ v → evalSim p (iext λ σ₁ → cong (λ (f : Env _ _) → (λ {σ'} → renval {σ = σ'} α ∘ f) << v) q)) 
   refl 
   (iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → 
-      fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
+      fixedtypesleft (cong (renval {σ = τ} ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {σ'} x → renval {σ = σ'} ρ (f x)) << v) x) q))))
 evalSim (congsc∼ p) q = cong nsuc (evalSim p q)
 
-
-{-
-Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
-Good nat t n = ⊤
-Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)
-Good (σ ∧ τ) t p = {!!} 
-
-GoodEnv : ∀{Γ Δ} → (γ : Env Γ Δ) → Set
-GoodEnv γ = ∀ {σ}(x : Var _ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) (var x)) (γ x) 
-
-_G<<_ : ∀{Γ Δ} → {γ : Env Γ Δ} → GoodEnv γ → ∀{σ} → {t : Tm Δ σ}{v : Val Δ σ} → Good σ t v → GoodEnv (γ << v)
-(γ G<< v) zero = v
-(γ G<< v) (suc x) = γ x 
-
-{-
-GoodEnv {ε} ε = ⊤
-GoodEnv {Γ < σ} (γ < v) = GoodEnv Γ γ × Good σ v
--}
-
-lem : ∀{Γ σ} → {t u : Tm Γ σ} → t ∼ u → ∀{v} → Good σ t v → Good σ u v
-lem {Γ} {nat} p g = g
-lem {Γ} {σ ⇒ τ} p g = {!subst!} 
-lem {Γ} {σ ∧ τ} p g = {!!}
-
-good : ∀{Γ Δ σ} → (γ : Env Γ Δ) → (gγ : GoodEnv γ) → (t : Tm Γ σ) → Good σ (sub (λ {σ} x → embNf (reify σ (γ x))) t) (eval γ t)
-good γ gγ (var x) = gγ x
-good γ gγ (lam t) = λ u v gv → lem {t = sub (sub<< (λ {σ} x → embNf (reify σ (γ x))) u) t}{u = app (sub (λ {σ} x → embNf (reify σ (γ x))) (lam t)) u} {!sym∼ beta∼!} {eval (γ << v) t} (good (γ << v) (gγ G<< gv) t)
-good γ gγ (app t u) = let 
-  gf = good γ gγ t
-  gv = good γ gγ u in
-  gf (sub (λ {σ} x → embNf (reify σ (γ x))) u) (eval γ u) gv
-good γ gγ ze = {!!}
-good γ gγ (sc t) = {!!}
-good γ gγ (rec t t₁ t₂) = {!!}
--}
 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
@@ -167,6 +132,9 @@ completeness (app t u) = trans∼ (congapp∼ (completeness t) (completeness u))
 completeness ze = refl∼
 completeness (sc t) = congsc∼ (completeness t)
 completeness (rec z f n) = {!!}
+completeness (a ,, b) = {!!}
+completeness (fst t) = {!!}
+completeness (snd t) = {!!}
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
