@@ -13,6 +13,7 @@ mutual
   Val Γ nat     = Nf Γ nat
   Val Γ (σ ⇒ τ) = Σ (∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ) 
                   λ f → ∀{Δ Δ'}(ρ : Ren Γ Δ)(ρ' : Ren Δ Δ')(v : Val Δ σ) → renval {σ = τ} ρ' (f ρ v) ≅ f (ρ' ∘ ρ) (renval {σ = σ} ρ' v)
+  Val Γ [ σ ]   = Nf Γ [ σ ]
 
   renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
   renval {Γ} {Δ} {ι} α v   = renNf α v
@@ -24,7 +25,9 @@ mutual
            ≅⟨ proj₂ v {Δ₁} {Δ'} (renComp ρ α) ρ' v₁ ⟩
            proj₁ v (λ {σ} x → ρ' (ρ (α x))) (renval {σ = σ} ρ' v₁)
            ∎)
+  renval {Γ} {Δ} {[ σ ]} α v = renNf α v
 
+{-
 
 Σeq : {A : Set} {A' : Set} {B : A → Set} {B' : A' → Set} → {a : A} → {a' : A'} → a ≅ a' → B ≅ B' → {b : B a} → {b' : B' a'} → b ≅ b' → _,_ {B = B} a b ≅ _,_ {B = B'} a' b'
 Σeq refl refl refl = refl
@@ -172,3 +175,5 @@ renvalnfold {σ = σ} ρ z f (nsuc n) = proof
   ≅⟨ cong (proj₁ f ρ) (renvalnfold {σ = σ} ρ z f n) ⟩
   proj₁ f ρ (nfold {σ = σ} (renval {σ = σ} ρ z) ((λ β → proj₁ f (β ∘ ρ)) , (λ ρ₁ ρ' v₁ → trans (proj₂ f (ρ₁ ∘ ρ) ρ' v₁) refl)) (renNf ρ n))
   ∎
+
+-}
