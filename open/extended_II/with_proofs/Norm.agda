@@ -80,7 +80,7 @@ renvaleval γ ρ (a ,, b) = {!!}
 renvaleval γ ρ (fst a) = {!!}
 renvaleval γ ρ (snd a) = {!!}
 
-{-
+
 renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
 renvalId {Γ} {nat} v = renNfId v
 renvalId {Γ} {σ ⇒ τ} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
@@ -121,7 +121,7 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
 evalSim (congsc∼ p) q = cong nsuc (evalSim p q)
 
 
-
+{-
 Good : ∀{Γ} σ → Tm Γ σ → Val Γ σ → Set
 Good nat t n = ⊤
 Good (σ ⇒ τ) t f = ∀ u v → Good σ u v → Good τ (app t u) (proj₁ f id v)
@@ -154,7 +154,7 @@ good γ gγ (app t u) = let
 good γ gγ ze = {!!}
 good γ gγ (sc t) = {!!}
 good γ gγ (rec t t₁ t₂) = {!!}
-
+-}
 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
@@ -172,4 +172,3 @@ third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
 
 
--}

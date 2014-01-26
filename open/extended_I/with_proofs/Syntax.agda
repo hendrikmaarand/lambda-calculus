@@ -6,6 +6,7 @@ open ≅-Reasoning renaming (begin_ to proof_)
 
 
 data Ty : Set where
+  ι   : Ty
   nat : Ty
   _⇒_ : Ty → Ty → Ty
 
@@ -28,7 +29,7 @@ data Tm (Γ : Con) : Ty → Set where
 mutual
   data Nf (Γ : Con) : Ty → Set where
     nlam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
-    ne    : Ne Γ nat → Nf Γ nat
+    ne    : ∀{σ} → Ne Γ σ → Nf Γ σ
     nzero : Nf Γ nat
     nsuc  : Nf Γ nat → Nf Γ nat
 

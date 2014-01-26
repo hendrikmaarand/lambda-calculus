@@ -26,9 +26,6 @@ idE {ε} ()
 idE {Γ < σ} zero = reflect σ (nvar zero)
 idE {Γ < σ} (suc x) = renval suc (idE x)
 
---eq-idE : ∀{Γ} → Set
---eq-idE {Γ} = ∀{σ} → idE {Γ} ≅ idE {Γ}
-
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
@@ -100,30 +97,16 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
 
 
 
+--mutual
+_∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
+ι ∋ t R v = t ∼ embNf (reify ι v)
+(σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
 
-
-{-mutual
-  V⟦_⟧_R_⇓_ : ∀{Γ Δ} σ → (t : Tm Γ σ) → (γ : Env Γ Δ) → (v : Val Δ σ) → Set
-  V⟦ ι ⟧ t R γ ⇓ v = embNf (reify ι v) ∼ sub (λ {σ} → embNf ∘ reify σ ∘ γ) t
-  V⟦ σ ⇒ τ ⟧ t R γ ⇓ f = ∀{Δ} (ρ : Ren _ Δ) → (u : Tm _ σ) → (v : Val Δ σ) → V⟦ σ ⟧ u R renval ρ ∘ γ ⇓ v →
-                                C⟦ τ ⟧ app t u R renval ρ ∘ γ ⇓ proj₁ f ρ v 
-
-  C⟦_⟧_R_⇓_ : ∀{Γ Δ} σ → (t : Tm Γ σ) → (γ : Env Γ Δ) → (v : Val Δ σ) → Set
-  C⟦ σ ⟧ t R γ ⇓ v =  V⟦ σ ⟧ t R γ ⇓ v × embNf (reify σ v) ∼ (sub (λ {σ} → embNf ∘ reify σ ∘ γ) t)  
--}
-
-
-
-mutual
-  _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
-  ι ∋ t R v = t ∼ embNf (reify ι v)
-  (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u S proj₁ f ρ v
-
-  _∋_S_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
-  σ ∋ t S v = σ ∋ t R v × t ∼ embNf (reify σ v)
+--  _∋_S_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
+--  σ ∋ t S v = σ ∋ t R v × t ∼ embNf (reify σ v)
 
 _E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
-ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x S η x
+ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x R η x
 
 
 
@@ -135,28 +118,75 @@ ren∼ : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {ρ ρ' : Ren Γ Δ} → _≅_ 
 ren∼ refl refl∼ = refl∼
 ren∼ p (sym∼ q) = sym∼ (ren∼ (sym p) q)
 ren∼ p (trans∼ q q₁) = trans∼ (ren∼ p q) (ren∼ refl q₁)
-ren∼ {ρ = ρ} refl (beta∼ {t = t}{u = u}) = trans∼ (beta∼ {t = ren (wk ρ) t}{u = ren ρ u}) {!!} 
-ren∼ p eta∼ = {!!}
+ren∼ {ρ = ρ} refl (beta∼ {t = t}{u = u}) = trans∼ (beta∼ {t = ren (wk ρ) t}{u = ren ρ u}) (≅to∼ (
+  proof
+  sub (sub<< var (ren ρ u)) (ren (wk ρ) t) 
+  ≅⟨ subren (sub<< var (ren ρ u)) (wk ρ) t ⟩
+  sub ((sub<< var (ren ρ u)) ∘ (wk ρ)) t
+  ≅⟨ {!!} ⟩
+  sub (ren ρ ∘ (sub<< var u)) t
+  ≅⟨ sym (rensub ρ (sub<< var u) t) ⟩
+  ren ρ (sub (sub<< var u) t)
+  ∎)) 
+ren∼ {ρ = ρ} refl (eta∼ {t = t}) = trans∼ (eta∼ {t = ren ρ t}) (conglam∼ (congapp∼ (≅to∼ (
+  proof
+  ren suc (ren ρ t) 
+  ≅⟨ sym (rencomp suc ρ t) ⟩
+  ren (suc ∘ ρ) t 
+  ≅⟨ refl ⟩
+  ren ((wk ρ) ∘ suc) t 
+  ≅⟨ rencomp (wk ρ) suc t ⟩
+  ren (wk ρ) (ren suc t)
+  ∎)) refl∼))
 ren∼ p (congapp∼ q q₁) = congapp∼ (ren∼ p q) (ren∼ p q₁)
 ren∼ p (conglam∼ q) = conglam∼ (ren∼ (cong wk p) q)
 
 
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
 R∼ {Γ} {ι} r p = trans∼ (sym∼ p) r
-R∼ {Γ} {σ ⇒ τ} r p = λ ρ u v' r' → let a , b = r ρ u v' r' in
-  R∼ a (congapp∼ (ren∼ refl p) refl∼) , trans∼ (congapp∼ (sym∼ (ren∼ refl p)) refl∼) b
+R∼ {Γ} {σ ⇒ τ} r p =  λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
+
+--let a , b = r ρ u v' r' in
+--  R∼ a (congapp∼ (ren∼ refl p) refl∼) , trans∼ (congapp∼ (sym∼ (ren∼ refl p)) refl∼) b
 
 
+{-
 S∼ : ∀{Γ σ} → (t t' : Tm Γ σ) → (v : Val Γ σ) → σ ∋ t S v → t ∼ t' → σ ∋ t' S v
 S∼ {Γ} {ι} t t' v (a , b) p = trans∼ (sym∼ p) a , trans∼ (sym∼ p) b 
 S∼ {Γ} {σ ⇒ τ} t t' v (a , b) p = (λ ρ u v' p' → S∼ {σ = τ} (app (ren ρ t) u) (app (ren ρ t') u) (proj₁ v ρ v') (a ρ u v' p') 
                                                      (congapp∼ (ren∼ refl p) refl∼)) , 
                                    trans∼ (sym∼ p) b
+-}
 
+sub-lemma : ∀{Γ Δ τ σ} → (f : Sub Γ Δ) → (t : Tm (Γ < σ) τ) → (u : Tm Δ σ) → sub (sub<< f u) t ≅ sub (sub<< var u) (sub (lift f) t)
+sub-lemma f (var x) u = {!!}
+sub-lemma f (lam t) u = cong lam {!!}
+sub-lemma f (app t t₁) u = cong₂ app (sub-lemma f t u) (sub-lemma f t₁ u)
 
-lemma : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t S (eval η t)
-lemma (var x) ρ η e = e x
-lemma (lam t) ρ η e = (λ ρ' u v p → {!lemma t!} , {!!}) , 
+fund-thm : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t R (eval η t)
+fund-thm (var x) ρ η e = e x
+fund-thm (lam t) ρ η e = λ α u v p → R∼ (fund-thm t (sub<< (ren α ∘ ρ) u) ((renval α ∘ η) << v) {!e !})
+  (trans∼ 
+    (≅to∼ (
+      proof
+      sub (sub<< (ren α ∘ ρ) u) t 
+      ≅⟨ {!ren α ∘ ρ!} ⟩
+      sub (sub<< var u) (sub (lift (ren α ∘ ρ)) t)
+      ≅⟨ cong (λ (x : Sub _ _) → sub (sub<< var u) (sub x t)) {!!}  ⟩
+      sub (sub<< var u) (sub (ren (wk α) ∘ (lift ρ)) t)
+      ≅⟨ cong (sub (sub<< var u)) (sym (rensub (wk α) (lift ρ) t)) ⟩
+      sub (sub<< var u) (ren (wk α) (sub (lift ρ) t))
+      ∎)) 
+    (sym∼ (beta∼ {t = (ren (wk α) (sub (lift ρ) t))} {u = u})))
+fund-thm (app t u) ρ η e = let
+  r = fund-thm t ρ η e 
+  r' = fund-thm u ρ η e in 
+    R∼ (r id (sub ρ u) (eval η u) r') (congapp∼ (≅to∼ (renid (sub ρ t))) refl∼) 
+
+--fund-thm t (sub<< (ren ρ' ∘ ρ) u) ((renval ρ' ∘ η) << v) 
+
+{-
+(λ ρ' u v p → {!lemma t!} , {!!}) , 
                                     conglam∼ (≅to∼ {!!})
 --proj₁ (lemma t (sub<< (ren ρ' ∘ ρ) u) ((renval ρ' ∘ η) << v) ?) , ?
 lemma (app t u) ρ η e = let 
@@ -165,23 +195,9 @@ lemma (app t u) ρ η e = let
   p'' , q'' = (p id (sub ρ u) (eval η u) p') in
               R∼ p'' (≅to∼ (cong (λ x → app x (sub ρ u)) (renid (sub ρ t)))) ,
               trans∼ (congapp∼ (≅to∼ (sym (renid (sub ρ t)))) refl∼) q''
-
-
-
-
-
-{-
-
-completeness_lemma : ∀{Γ Δ σ} → (t : Tm Γ σ) → (γ : Env Γ Δ) → C⟦ σ ⟧ t R γ ⇓ (eval γ t)  
-completeness_lemma (var x) γ = {!!}
-completeness_lemma (lam t) γ = (λ ρ u v p → {!completeness_lemma t ((renval ρ ∘ γ) << v)!}) , {!!}
-completeness_lemma (app t u) γ = let
-  f , p = completeness_lemma t γ
-  v , q = completeness_lemma u γ
-  x , y = f renId u (eval γ u) {!!} in
-    {!x ,  !}
-
 -}
+
+
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
   
