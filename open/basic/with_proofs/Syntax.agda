@@ -189,6 +189,12 @@ subId = var
 subComp : ∀{B Γ Δ} → Sub Γ Δ → Sub B Γ → Sub B Δ
 subComp f g = sub f ∘ g
 
+
+sub<<-comp : ∀{Γ Δ B σ}(α : Sub Γ Δ)(β : Sub B Γ)(u : Tm Γ σ){τ}(x : Var (B < σ) τ) → subComp α (sub<< β u) x ≅ sub<< (subComp α β) (sub α u) x
+sub<<-comp α β u zero = refl
+sub<<-comp α β u (suc x) = refl
+
+
 liftid : ∀{Γ σ τ}(x : Var (Γ < σ) τ) → lift subId x ≅ subId x
 liftid zero = refl
 liftid (suc y) = refl
