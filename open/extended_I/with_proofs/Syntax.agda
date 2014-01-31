@@ -1,6 +1,7 @@
 module Syntax where
 
 open import Function
+open import Data.Nat hiding (_<_)
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
 
@@ -30,7 +31,7 @@ data Tm (Γ : Con) : Ty → Set where
   rec   : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ
   cons  : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
   nil   : ∀{σ} → Tm Γ [ σ ]
-  fold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ σ
+  tfold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ σ
 
 mutual
   data Nf (Γ : Con) : Ty → Set where
@@ -45,7 +46,7 @@ mutual
     nvar : ∀{σ} → Var Γ σ → Ne Γ σ
     napp : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ
-    nfold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ (τ ⇒ τ)) → Ne Γ σ → Ne Γ τ 
+    nfold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ (τ ⇒ τ)) → Ne Γ [ σ ] → Ne Γ τ 
 
 -- the type of renamings: functions mapping variables in one context to
 -- variables in another
@@ -79,7 +80,7 @@ ren ρ (sc t) = sc (ren ρ t)
 ren ρ (rec z f n) = rec (ren ρ z) (ren ρ f) (ren ρ n)
 ren ρ (cons h t) = cons (ren ρ h) (ren ρ t)
 ren ρ nil = nil
-ren ρ (fold a f l) = fold (ren ρ a) (ren ρ f) (ren ρ l) 
+ren ρ (tfold a f l) = tfold (ren ρ a) (ren ρ f) (ren ρ l) 
 
 
 -- the identity renaming (maps variables to themselves)
@@ -147,7 +148,7 @@ renid (sc t) = cong sc (renid t)
 renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
 renid (cons h t) = cong₂ cons (renid h) (renid t)
 renid (nil) = refl
-renid (fold a f l) = cong₃ fold (renid a) (renid f) (renid l)
+renid (tfold a f l) = cong₃ tfold (renid a) (renid f) (renid l)
 
 
 -- composing two renamings and then weakening them together should be
@@ -175,7 +176,7 @@ rencomp f g (sc t) = cong sc (rencomp f g t)
 rencomp f g (rec z h n) = cong₃ rec (rencomp f g z) (rencomp f g h) (rencomp f g n)
 rencomp f g (cons h t) = cong₂ cons (rencomp f g h) (rencomp f g t)
 rencomp f g nil = refl
-rencomp f g (fold a fn l) = cong₃ fold (rencomp f g a) (rencomp f g fn) (rencomp f g l)
+rencomp f g (tfold a fn l) = cong₃ tfold (rencomp f g a) (rencomp f g fn) (rencomp f g l)
 
 
 mutual
@@ -239,7 +240,7 @@ sub f (sc n) = sc (sub f n)
 sub f (rec z g n) = rec (sub f z) (sub f g) (sub f n)
 sub f (cons t t₁) = cons (sub f t) (sub f t₁)
 sub f nil = nil
-sub f (fold a fn l) = fold (sub f a) (sub f fn) (sub f l)
+sub f (tfold a fn l) = tfold (sub f a) (sub f fn) (sub f l)
 
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
@@ -272,7 +273,7 @@ subid (sc n) = cong sc (subid n)
 subid (rec z f n) = cong₃ rec (subid z) (subid f) (subid n)
 subid (cons t t₁) = cong₂ cons (subid t) (subid t₁)
 subid nil = refl
-subid (fold a f l) = cong₃ fold (subid a) (subid f) (subid l)
+subid (tfold a f l) = cong₃ tfold (subid a) (subid f) (subid l)
 
 
 -- time for the mysterious four lemmas:
@@ -298,7 +299,7 @@ subren f g (sc n) = cong sc (subren f g n)
 subren f g (rec z h n) = cong₃ rec (subren f g z) (subren f g h) (subren f g n)
 subren f g (cons t t₁) = cong₂ cons (subren f g t) (subren f g t₁)
 subren f g nil = refl
-subren f g (fold a fn l) = cong₃ fold (subren f g a) (subren f g fn) (subren f g l)
+subren f g (tfold a fn l) = cong₃ tfold (subren f g a) (subren f g fn) (subren f g l)
 
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -322,7 +323,7 @@ rensub f g (sc n) = cong sc (rensub f g n)
 rensub f g (rec z h n) = cong₃ rec (rensub f g z) (rensub f g h) (rensub f g n)
 rensub f g (cons t t₁) = cong₂ cons (rensub f g t) (rensub f g t₁)
 rensub f g nil = refl
-rensub f g (fold a fn l) = cong₃ fold (rensub f g a) (rensub f g fn) (rensub f g l)
+rensub f g (tfold a fn l) = cong₃ tfold (rensub f g a) (rensub f g fn) (rensub f g l)
 
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -353,5 +354,5 @@ subcomp f g (sc n) = cong sc (subcomp f g n)
 subcomp f g (rec z h n) = cong₃ rec (subcomp f g z) (subcomp f g h) (subcomp f g n)
 subcomp f g (cons t t₁) = cong₂ cons (subcomp f g t) (subcomp f g t₁)
 subcomp f g nil = refl
-subcomp f g (fold a fn l) = cong₃ fold (subcomp f g a) (subcomp f g fn) (subcomp f g l)
+subcomp f g (tfold a fn l) = cong₃ tfold (subcomp f g a) (subcomp f g fn) (subcomp f g l)
 
