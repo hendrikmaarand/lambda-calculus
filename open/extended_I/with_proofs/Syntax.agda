@@ -29,24 +29,26 @@ data Tm (Γ : Con) : Ty → Set where
   ze    : Tm Γ nat
   sc    : Tm Γ nat → Tm Γ nat
   rec   : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ
-  cons  : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
   nil   : ∀{σ} → Tm Γ [ σ ]
-  tfold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ σ
+  cons  : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
+  tfold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ τ
 
 mutual
   data Nf (Γ : Con) : Ty → Set where
     nlam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
-    ne    : ∀{σ} → Ne Γ σ → Nf Γ σ
+    ne    : Ne Γ ι → Nf Γ ι
+    nenat : Ne Γ nat → Nf Γ nat
+    ne[]  : ∀{σ} → Ne Γ [ σ ] → Nf Γ [ σ ] 
     nzero : Nf Γ nat
     nsuc  : Nf Γ nat → Nf Γ nat
-    ncons : ∀{σ} → Nf Γ σ → Nf Γ [ σ ] → Nf Γ [ σ ]
     nnil  : ∀{σ} → Nf Γ [ σ ]
+    ncons : ∀{σ} → Nf Γ σ → Nf Γ [ σ ] → Nf Γ [ σ ]
 
   data Ne (Γ : Con) : Ty → Set where
     nvar : ∀{σ} → Var Γ σ → Ne Γ σ
     napp : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ
-    nfold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ (τ ⇒ τ)) → Ne Γ [ σ ] → Ne Γ τ 
+    nfold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ τ ⇒ τ) → Ne Γ [ σ ] → Ne Γ τ 
 
 -- the type of renamings: functions mapping variables in one context to
 -- variables in another
@@ -78,8 +80,8 @@ ren ρ (app t u) = app (ren ρ t) (ren ρ u)
 ren ρ ze = ze
 ren ρ (sc t) = sc (ren ρ t)
 ren ρ (rec z f n) = rec (ren ρ z) (ren ρ f) (ren ρ n)
-ren ρ (cons h t) = cons (ren ρ h) (ren ρ t)
 ren ρ nil = nil
+ren ρ (cons h t) = cons (ren ρ h) (ren ρ t)
 ren ρ (tfold a f l) = tfold (ren ρ a) (ren ρ f) (ren ρ l) 
 
 
@@ -104,10 +106,12 @@ mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Nf Δ σ → Nf Γ σ
   renNf ρ (nlam n) = nlam (renNf (wk ρ) n)
   renNf ρ (ne n) = ne (renNe ρ n)
+  renNf ρ (nenat n) = nenat (renNe ρ n)
+  renNf ρ (ne[] n) = ne[] (renNe ρ n)
   renNf ρ nzero = nzero
   renNf ρ (nsuc n) = nsuc (renNf ρ n)
-  renNf ρ (ncons h t) = ncons (renNf ρ h) (renNf ρ t)
   renNf ρ nnil = nnil
+  renNf ρ (ncons h t) = ncons (renNf ρ h) (renNf ρ t)
   
 
   renNe : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Ne Δ σ → Ne Γ σ
@@ -116,6 +120,23 @@ mutual
   renNe ρ (nrec z f n) = nrec (renNf ρ z) (renNf ρ f) (renNe ρ n)
   renNe ρ (nfold a f l) = nfold (renNf ρ a) (renNf ρ f) (renNe ρ l)
 
+
+mutual
+  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
+  embNf (nlam n) = lam (embNf n)
+  embNf (ne x) = embNe x
+  embNf (nenat x) = embNe x
+  embNf (ne[] x) = embNe x
+  embNf nzero = ze
+  embNf (nsuc n) = sc (embNf n)
+  embNf nnil = nil
+  embNf (ncons h t) = cons (embNf h) (embNf t)
+
+  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
+  embNe (nvar x) = var x
+  embNe (napp t u) = app (embNe t) (embNf u)
+  embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
+  embNe (nfold x f n) = tfold (embNf x) (embNf f) (embNe n)
 
 
 postulate ext : {A : Set}{B B' : A → Set}{f : ∀ a → B a}{g : ∀ a → B' a} →
@@ -146,8 +167,8 @@ renid (app t u) = cong₂ app (renid t) (renid u)
 renid ze = refl
 renid (sc t) = cong sc (renid t)
 renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
+renid nil = refl
 renid (cons h t) = cong₂ cons (renid h) (renid t)
-renid (nil) = refl
 renid (tfold a f l) = cong₃ tfold (renid a) (renid f) (renid l)
 
 
@@ -174,8 +195,8 @@ rencomp f g (app t u) = cong₂ app (rencomp f g t ) (rencomp f g u)
 rencomp f g ze = refl
 rencomp f g (sc t) = cong sc (rencomp f g t)
 rencomp f g (rec z h n) = cong₃ rec (rencomp f g z) (rencomp f g h) (rencomp f g n)
-rencomp f g (cons h t) = cong₂ cons (rencomp f g h) (rencomp f g t)
 rencomp f g nil = refl
+rencomp f g (cons h t) = cong₂ cons (rencomp f g h) (rencomp f g t)
 rencomp f g (tfold a fn l) = cong₃ tfold (rencomp f g a) (rencomp f g fn) (rencomp f g l)
 
 
@@ -195,10 +216,13 @@ mutual
     nlam (renNf (wk (ρ' ∘ ρ)) v)
     ∎
   rennfcomp ρ' ρ (ne x) = cong ne (rennecomp ρ' ρ x)
+  rennfcomp ρ' ρ (nenat n) = cong nenat (rennecomp ρ' ρ n)
+  rennfcomp ρ' ρ (ne[] l) = cong ne[] (rennecomp ρ' ρ l)
   rennfcomp ρ' ρ nzero = refl
   rennfcomp ρ' ρ (nsuc v) = cong nsuc (rennfcomp ρ' ρ v)
-  rennfcomp ρ' ρ (ncons h t) = cong₂ ncons (rennfcomp ρ' ρ h) (rennfcomp ρ' ρ t)
   rennfcomp ρ' ρ nnil = refl
+  rennfcomp ρ' ρ (ncons h t) = cong₂ ncons (rennfcomp ρ' ρ h) (rennfcomp ρ' ρ t)
+
 
 
 mutual
@@ -211,10 +235,12 @@ mutual
     nlam n
     ∎
   renNfId (ne x) = cong ne (renNeId x)
+  renNfId (nenat n) = cong nenat (renNeId n)
+  renNfId (ne[] {_} l) = cong ne[] (renNeId l)
   renNfId nzero = refl
   renNfId (nsuc n) = cong nsuc (renNfId n)   
-  renNfId (ncons n n₁) = cong₂ ncons (renNfId n) (renNfId n₁)
   renNfId nnil = refl
+  renNfId (ncons n n₁) = cong₂ ncons (renNfId n) (renNfId n₁)
   
   renNeId : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
   renNeId (nvar x) = refl
@@ -238,8 +264,8 @@ sub f (app t u) = app (sub f t) (sub f u)
 sub f ze = ze
 sub f (sc n) = sc (sub f n)
 sub f (rec z g n) = rec (sub f z) (sub f g) (sub f n)
-sub f (cons t t₁) = cons (sub f t) (sub f t₁)
 sub f nil = nil
+sub f (cons t t₁) = cons (sub f t) (sub f t₁)
 sub f (tfold a fn l) = tfold (sub f a) (sub f fn) (sub f l)
 
 
@@ -271,8 +297,8 @@ subid (app t u) = cong₂ app (subid t) (subid u)
 subid ze = refl
 subid (sc n) = cong sc (subid n)
 subid (rec z f n) = cong₃ rec (subid z) (subid f) (subid n)
-subid (cons t t₁) = cong₂ cons (subid t) (subid t₁)
 subid nil = refl
+subid (cons t t₁) = cong₂ cons (subid t) (subid t₁)
 subid (tfold a f l) = cong₃ tfold (subid a) (subid f) (subid l)
 
 
@@ -297,8 +323,8 @@ subren f g (app t u) = cong₂ app (subren f g t) (subren f g u)
 subren f g ze = refl
 subren f g (sc n) = cong sc (subren f g n)
 subren f g (rec z h n) = cong₃ rec (subren f g z) (subren f g h) (subren f g n)
-subren f g (cons t t₁) = cong₂ cons (subren f g t) (subren f g t₁)
 subren f g nil = refl
+subren f g (cons t t₁) = cong₂ cons (subren f g t) (subren f g t₁)
 subren f g (tfold a fn l) = cong₃ tfold (subren f g a) (subren f g fn) (subren f g l)
 
 
@@ -321,8 +347,8 @@ rensub f g (app t u) = cong₂ app (rensub f g t) (rensub f g u)
 rensub f g ze = refl
 rensub f g (sc n) = cong sc (rensub f g n)
 rensub f g (rec z h n) = cong₃ rec (rensub f g z) (rensub f g h) (rensub f g n)
-rensub f g (cons t t₁) = cong₂ cons (rensub f g t) (rensub f g t₁)
 rensub f g nil = refl
+rensub f g (cons t t₁) = cong₂ cons (rensub f g t) (rensub f g t₁)
 rensub f g (tfold a fn l) = cong₃ tfold (rensub f g a) (rensub f g fn) (rensub f g l)
 
 
@@ -352,7 +378,7 @@ subcomp f g (app t u) = cong₂ app (subcomp  f g t) (subcomp f g u)
 subcomp f g ze = refl
 subcomp f g (sc n) = cong sc (subcomp f g n)
 subcomp f g (rec z h n) = cong₃ rec (subcomp f g z) (subcomp f g h) (subcomp f g n)
-subcomp f g (cons t t₁) = cong₂ cons (subcomp f g t) (subcomp f g t₁)
 subcomp f g nil = refl
+subcomp f g (cons t t₁) = cong₂ cons (subcomp f g t) (subcomp f g t₁)
 subcomp f g (tfold a fn l) = cong₃ tfold (subcomp f g a) (subcomp f g fn) (subcomp f g l)
 

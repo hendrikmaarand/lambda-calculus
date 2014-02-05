@@ -273,4 +273,3 @@ subcomp f g (lam t) = proof
   ∎
 subcomp f g (app t u) = cong₂ app (subcomp  f g t) (subcomp f g u)
 
-

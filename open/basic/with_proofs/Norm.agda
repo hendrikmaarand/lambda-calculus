@@ -26,6 +26,10 @@ idE {ε} ()
 idE {Γ < σ} zero = reflect σ (nvar zero)
 idE {Γ < σ} (suc x) = renval suc (idE x)
 
+idEsuc<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((renval suc ∘ idE) << reflect σ (nvar zero)) x
+idEsuc<< zero = refl
+idEsuc<< (suc v) = refl
+
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
@@ -131,7 +135,6 @@ ren∼ p (congapp∼ q q₁) = congapp∼ (ren∼ p q) (ren∼ p q₁)
 ren∼ p (conglam∼ q) = conglam∼ (ren∼ (cong wk p) q)
 
 
---mutual
 _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
 ι ∋ t R v = t ∼ embNf (reify ι v)
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
@@ -224,11 +227,20 @@ completeness t = trans∼ (≅to∼ (sym (subid t))) (lem1 _ (fund-thm t var idE
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
 
+
 mutual
 
   stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
-  stability (nlam n) = cong nlam {!stability n!}
-  stability (ne x) = {!!}
+  stability {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
+    n 
+    ≅⟨ stability n ⟩
+    reify τ (eval idE (embNf n))
+    ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
+    reify τ (eval ((renval suc ∘ idE) << reflect σ (nvar zero)) (embNf n))
+    ∎)
+  stability (ne (nvar x)) = {!!}
+  stability (ne (napp x x₁)) = {!!}
 
   stabilityNe : ∀{Γ σ} (n : Ne Γ σ) → n ≅ eval idE (embNe n)
-  stabilityNe = {!!}
+  stabilityNe (nvar x) = {!!}
+  stabilityNe (napp n x) = {!!}

@@ -30,17 +30,6 @@ idE {Γ < σ} (suc {σ = σ'} x) = renval {σ = σ'} suc (idE x)
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
-mutual
-  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
-  embNf (nlam n) = lam (embNf n)
-  embNf (ne x) = embNe x
-  embNf nzero = ze
-  embNf (nsuc n) = sc (embNf n)
-  
-  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
-  embNe (nvar x) = var x
-  embNe (napp t u) = app (embNe t) (embNf u)
-  embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
 
 renvaleval : ∀{Γ Δ E σ} → (γ : Env Δ Γ) → (ρ : Ren Γ E) → (t : Tm Δ σ) → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) t ≅ renval {σ = σ} ρ (eval γ t)
 renvaleval γ ρ (var x) = refl
@@ -65,7 +54,7 @@ renvaleval γ ρ (sc t) = cong nsuc (renvaleval γ ρ t)
 renvaleval {σ = σ} γ ρ (rec z f n) = proof
   nfold {σ = σ} (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) n)
   ≅⟨ cong₃ (nfold {σ = σ}) (renvaleval γ ρ z) (renvaleval γ ρ f) (renvaleval γ ρ n) ⟩
-   nfold {σ = σ} (renval {σ = σ} ρ (eval γ z)) 
+   nfold {σ = σ} (renval {σ = σ} ρ (eval γ z))
          ((λ {E} β → proj₁ (eval γ f) (β ∘ ρ)) ,
                                (λ {Δ₁} {Δ'} ρ₁ ρ' v₁ → trans (proj₂ (eval γ f) (ρ₁ ∘ ρ) ρ' v₁) refl)) 
          (renNf ρ (eval γ n))
