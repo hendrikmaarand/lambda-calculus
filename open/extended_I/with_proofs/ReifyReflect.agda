@@ -158,10 +158,10 @@ natfold z f nzero = z
 natfold {σ = σ} z f (nsuc n) = proj₁ f renId (natfold {σ = σ} z f n)
 
 
-listfold : ∀{Γ σ} → Val Γ σ → Val Γ (σ ⇒ σ ⇒ σ) → Val Γ [ σ ] → Val Γ σ
-listfold {σ = σ} z f (ne[] x) = reflect σ (nfold (reify _ z) (reify _ f) x)
+listfold : ∀{Γ σ τ} → Val Γ τ → Val Γ (σ ⇒ τ ⇒ τ) → Val Γ [ σ ] → Val Γ τ
+listfold {τ = τ} z f (ne[] x) = reflect τ (nfold (reify _ z) (reify _ f) x)
 listfold z f nnil = z
-listfold {σ = σ} z f (ncons h t) = proj₁ (proj₁ f renId {!h!}) renId (listfold z f t)
+listfold {τ = τ} z f (ncons h t) = proj₁ (proj₁ f renId {!h!}) renId (listfold {τ = τ} z f t)
 
 
 renvalnfold : ∀{Γ Δ σ} (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ))(n : Val Γ nat) → renval {σ = σ} ρ (natfold {σ = σ} z f n) ≅ 
