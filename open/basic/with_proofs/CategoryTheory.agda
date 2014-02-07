@@ -148,3 +148,5 @@ record Init (C : Cat) : Set where
         law : ∀{X}{f : Hom C I X} → i {X} ≅ f
 
 
+
+

@@ -4,6 +4,8 @@ open import Syntax
 open import Data.Nat hiding (_<_)
 open import Data.Product hiding (map)
 open import Data.List hiding ([_])
+open import Data.List.Properties
+open import Data.Sum hiding (map)
 open import Function
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
@@ -14,7 +16,7 @@ mutual
   Val Γ nat     = Nf Γ nat
   Val Γ (σ ⇒ τ) = Σ (∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ) 
                   λ f → ∀{Δ Δ'}(ρ : Ren Γ Δ)(ρ' : Ren Δ Δ')(v : Val Δ σ) → renval {σ = τ} ρ' (f ρ v) ≅ f (ρ' ∘ ρ) (renval {σ = σ} ρ' v)
-  Val Γ [ σ ]   = Nf Γ [ σ ]
+  Val Γ [ σ ]   = List (Val Γ σ) ⊎ Ne Γ [ σ ] 
 
   renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
   renval {Γ} {Δ} {ι} α v   = renNf α v
@@ -26,7 +28,8 @@ mutual
            ≅⟨ proj₂ v {Δ₁} {Δ'} (renComp ρ α) ρ' v₁ ⟩
            proj₁ v (λ {σ} x → ρ' (ρ (α x))) (renval {σ = σ} ρ' v₁)
            ∎)
-  renval {Γ} {Δ} {[ σ ]} α v = renNf α v
+  renval {σ = [ σ ]} α (inj₁ x) = inj₁ (map (renval {σ = σ} α) x)
+  renval {σ = [ σ ]} α (inj₂ y) = inj₂ (renNe α y)
 
 
 
@@ -46,13 +49,24 @@ fixedtypesright : ∀{A A' A'' A''' : Set}{a : A}{a' : A'}{a'' : A''}{a''' : A''
 fixedtypesright {p = refl} {q = refl} refl = refl
 
 
+mapcomp : ∀ {A : Set} {B : Set} {C : Set}(g : B → C) (f : A → B)(xs : List A) → map (g ∘ f) xs ≅ (map g ∘ map f) xs
+mapcomp g f [] = refl
+mapcomp g f (x ∷ xs) = cong₂ _∷_ refl (mapcomp g f xs)
+
+map1 : ∀{Γ Δ σ} (f : Ren Γ Δ) (xs : List (Val Γ σ)) → inj₁ {B = Ne Δ [ σ ]} (map (renval {σ = σ} f) xs) ≅ renval {σ = [ σ ]} f (inj₁ xs)
+map1 f xs = refl
+
+inj : {A B : Set} {a a' : A} (p : inj₁ {B = B} a ≅ inj₁ {B = B} a') → a ≅ a'
+inj refl = refl 
+
 
 renvalcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E) → (ρ : Ren Γ Δ) → (v : Val Γ σ) → renval {σ = σ} ρ' (renval {σ = σ} ρ v) ≅ renval {σ = σ} (ρ' ∘ ρ) v 
 renvalcomp {σ = ι} ρ' ρ v = rennfcomp ρ' ρ v
 renvalcomp {σ = nat} ρ' ρ v = rennfcomp ρ' ρ v
 renvalcomp {σ = σ ⇒ τ} ρ' ρ v = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
-renvalcomp {σ = [ τ ]} ρ' ρ v = rennfcomp ρ' ρ v
-
+renvalcomp {σ = [ τ ]} ρ' ρ (inj₁ []) = refl
+renvalcomp {σ = [ τ ]} ρ' ρ (inj₁ (x ∷ x₁)) = cong inj₁ (cong₂ _∷_ (renvalcomp {σ = τ} ρ' ρ x)  (inj (renvalcomp {σ = [ τ ]} ρ' ρ (inj₁ x₁))))
+renvalcomp {σ = [ τ ]} ρ' ρ (inj₂ y) = cong inj₂ (rennecomp ρ' ρ y)
 
 Env : Con → Con → Set
 Env Γ Δ = ∀{σ} → Var Γ σ → Val Δ σ
@@ -87,21 +101,24 @@ ifcong refl a = refl
 fcong : ∀{A B : Set} → {f f' : A → B} → f ≅ f' → (a : A) → f a ≅ f' a
 fcong refl a = refl
 
-
+agda2Nf : ∀{Γ σ} → List (Nf Γ σ) → Nf Γ [ σ ] 
+agda2Nf [] = nnil
+agda2Nf (x ∷ l) = ncons x (agda2Nf l)
 
 
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
   reify ι   v = v
   reify nat v = v
-  reify [ σ ] v = v
+  reify [ σ ] (inj₁ x) = agda2Nf (map (reify σ) x)
+  reify [ σ ] (inj₂ y) = ne[] y
   reify (σ ⇒ τ) v = nlam (reify τ (proj₁ v suc (reflect σ (nvar zero))))
 
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι   n = ne n
   reflect nat n = nenat n
-  reflect [ σ ] n = ne[] n
+  reflect [ σ ] n = inj₂ n
   reflect (σ ⇒ τ) n = (λ α v → reflect τ (napp (renNe α n) (reify σ v))) , (λ ρ ρ' v → 
     proof
     renval {σ = τ} ρ' (reflect τ (napp (renNe ρ n) (reify σ v)))
@@ -134,12 +151,14 @@ mutual
       ≅⟨ cong ( λ f → renval {σ = τ} ρ' (reflect τ (napp f (reify σ v₁)))) (sym (rennecomp ρ₁ ρ n)) ⟩
       renval {σ = τ} ρ' (reflect τ (napp (renNe ρ₁ (renNe ρ n)) (reify σ v₁)))
       ∎)))
-  renvalReflect {Γ} {Δ} {[ σ ]} ρ l = cong ne[] refl
+  renvalReflect {Γ} {Δ} {[ σ ]} ρ l = refl
 
   reifyRenval : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Val Γ σ) → renNf ρ (reify σ n) ≅ reify σ (renval {σ = σ} ρ n)
   reifyRenval {Γ} {Δ} {ι}   ρ n = proof renNf ρ n ≡⟨⟩ renNf ρ n ∎
   reifyRenval {σ = nat} ρ v = refl
-  reifyRenval {σ = [ σ ]} ρ l = refl
+  reifyRenval {σ = [ σ ]} ρ (inj₁ []) = refl
+  reifyRenval {σ = [ σ ]} ρ (inj₁ (x ∷ x₁)) = cong₂ (ncons {σ = σ}) (reifyRenval ρ x) (reifyRenval ρ (inj₁ x₁)) 
+  reifyRenval {σ = [ σ ]} ρ (inj₂ y) = refl
   reifyRenval {Γ} {Δ} {σ ⇒ τ} ρ n = proof
     nlam (renNf (wk ρ) (reify τ (proj₁ n suc (reflect σ (nvar zero)))))
     ≅⟨ cong nlam (reifyRenval (wk ρ) (proj₁ n suc (reflect σ (nvar zero)))) ⟩
@@ -159,14 +178,13 @@ natfold {σ = σ} z f (nsuc n) = proj₁ f renId (natfold {σ = σ} z f n)
 
 
 listfold : ∀{Γ σ τ} → Val Γ τ → Val Γ (σ ⇒ τ ⇒ τ) → Val Γ [ σ ] → Val Γ τ
-listfold {τ = τ} z f (ne[] x) = reflect τ (nfold (reify _ z) (reify _ f) x)
-listfold z f nnil = z
-listfold {τ = τ} z f (ncons h t) = proj₁ (proj₁ f renId {!h!}) renId (listfold {τ = τ} z f t)
+listfold z f (inj₁ x) = foldr (λ v → proj₁ (proj₁ f renId v) renId ) z x
+listfold {τ = τ} z f (inj₂ y) = reflect τ (nfold (reify _ z) (reify _ f) y)
 
 
-renvalnfold : ∀{Γ Δ σ} (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ))(n : Val Γ nat) → renval {σ = σ} ρ (natfold {σ = σ} z f n) ≅ 
+renvalnatfold : ∀{Γ Δ σ} (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ))(n : Val Γ nat) → renval {σ = σ} ρ (natfold {σ = σ} z f n) ≅ 
               natfold {σ = σ} (renval {σ = σ} ρ z) (renval {σ = σ ⇒ σ} ρ f) (renval {σ = nat} ρ n)
-renvalnfold {σ = σ}ρ z f (nenat x) = proof
+renvalnatfold {σ = σ}ρ z f (nenat x) = proof
   renval {σ = σ} ρ (reflect σ (nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x))
   ≅⟨ renvalReflect ρ ((nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x)) ⟩
   reflect σ (renNe ρ (nrec (reify σ z) (nlam (reify σ (proj₁ f suc (reflect σ (nvar zero))))) x))
@@ -184,12 +202,11 @@ renvalnfold {σ = σ}ρ z f (nenat x) = proof
     (proof renNe ρ x ≡⟨⟩ renNe ρ x ∎)) ⟩
   reflect σ (nrec (reify σ (renval {σ = σ} ρ z)) (nlam (reify σ (proj₁ f (suc ∘ ρ) (reflect σ (nvar zero))))) (renNe ρ x))
   ∎
-renvalnfold {σ = σ} ρ z f nzero = proof renval {σ = σ} ρ z ≡⟨⟩ renval {σ = σ} ρ z ∎
-renvalnfold {σ = σ} ρ z f (nsuc n) = proof
+renvalnatfold {σ = σ} ρ z f nzero = proof renval {σ = σ} ρ z ≡⟨⟩ renval {σ = σ} ρ z ∎
+renvalnatfold {σ = σ} ρ z f (nsuc n) = proof
   renval {σ = σ} ρ (proj₁ f renId (natfold {σ = σ} z f n)) 
   ≅⟨ proj₂ f renId ρ (natfold {σ = σ} z f n) ⟩
   proj₁ f ρ (renval {σ = σ} ρ (natfold {σ = σ} z f n))
-  ≅⟨ cong (proj₁ f ρ) (renvalnfold {σ = σ} ρ z f n) ⟩
+  ≅⟨ cong (proj₁ f ρ) (renvalnatfold {σ = σ} ρ z f n) ⟩
   proj₁ f ρ (natfold {σ = σ} (renval {σ = σ} ρ z) ((λ β → proj₁ f (β ∘ ρ)) , (λ ρ₁ ρ' v₁ → trans (proj₂ f (ρ₁ ∘ ρ) ρ' v₁) refl)) (renNf ρ n))
   ∎
-
