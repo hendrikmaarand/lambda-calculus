@@ -28,12 +28,10 @@ mutual
   eval γ ze = nzero
   eval γ (sc t) = nsuc (eval γ t)
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-  eval γ (cons h t) with (eval γ t)
-  eval γ (cons h t) | inj₁ x = inj₁ (eval γ h ∷ x)
-  eval γ (cons h t) | inj₂ y = {!eval γ h!}
-  eval γ nil = inj₁ []
-  eval γ (tfold {σ} {τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z) (eval γ f) (eval γ n)
-
+  eval γ nil = nilLV
+  eval γ (cons h t) = consLV (eval γ h) (eval γ t)
+  eval γ (tfold {σ}{τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z) (eval γ f) (eval γ n)
+ 
 
   
   evallem : ∀{Γ Δ Δ₁ σ} → (γ : Env Γ Δ)(α : Ren Δ Δ₁)(t : Tm Γ σ) → renval {σ = σ} α (eval γ t) ≅ eval (λ {σ'} → renval {σ = σ'} α ∘ γ) t
@@ -80,12 +78,12 @@ mutual
     ≅⟨ cong₃ (natfold {σ = σ}) (evallem γ ρ z) (evallem γ ρ f) (evallem γ ρ n) ⟩
     natfold {σ = σ} (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) n)
     ∎
-  evallem {σ = [ σ ]} γ α (cons t t₁) = {!!}
   evallem γ α nil = refl
-  evallem γ α (tfold z f n) = {!evallem γ!}
- 
+  evallem {σ = [ σ ]} γ α (cons t t₁) = cong₂ consLV (evallem γ α t) (evallem γ α t₁)
+  evallem {σ = σ} γ α (tfold z f n) = {!n!} 
 
-{-
+
+
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
 wk<< α β v zero = proof v ≡⟨⟩ v ∎
 wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
@@ -130,9 +128,10 @@ reneval α β (sc n) = proof
   nsuc (eval β (ren α n))
   ∎ 
 reneval {σ = σ} α β (rec z f n) = cong₃ natfold (reneval α β z) (reneval α β f) (reneval α β n)
-reneval α β nil = {!!}
-reneval α β (cons h t) = {!!}
-reneval α β (tfold z f l) = {!!}
+reneval α β nil = refl
+reneval α β (cons h t) = cong₂ consLV (reneval α β h) (reneval α β t)
+reneval α β (tfold z f l) = cong₃ listfold (reneval α β z) (reneval α β f) (reneval α β l)
+
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
@@ -189,7 +188,7 @@ subeval α β (sc n) = proof
   nsuc (eval β (sub α n))
   ∎
 subeval {σ = σ} α β (rec z f n) = cong₃ natfold (subeval α β z) (subeval α β f) (subeval α β n)
-subeval α β nil = {!!}
-subeval α β (cons h t) = {!!}
-subeval α β (tfold z f n) = {!!}
--}
+subeval α β nil = refl
+subeval α β (cons h t) = cong₂ consLV (subeval α β h) (subeval α β t)
+subeval α β (tfold z f n) = cong₃ listfold (subeval α β z) (subeval α β f) (subeval α β n)
+
