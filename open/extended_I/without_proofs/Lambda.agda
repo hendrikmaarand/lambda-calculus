@@ -47,9 +47,7 @@ data Tm (Γ : Con) : Ty → Set where
 mutual 
   data Nf (Γ : Con) : Ty → Set where
     lam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
-    ne   : Ne Γ ι → Nf Γ ι
-    nenat : Ne Γ nat → Nf Γ nat
-    ne[] : ∀{σ} → Ne Γ [ σ ] → Nf Γ [ σ ]
+    ne   : ∀{σ} → Ne Γ σ → Nf Γ σ
     _,,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     zero : Nf Γ nat
     suc  : Nf Γ nat → Nf Γ nat
@@ -64,25 +62,7 @@ mutual
     rec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     fold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ τ ⇒ τ) → Ne Γ [ σ ] → Ne Γ τ
     
-mutual
-  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
-  embNf (lam n) = lam (embNf n)
-  embNf (ne x) = embNe x
-  embNf (nenat x) = embNe x
-  embNf (ne[] x) = embNe x
-  embNf (n ,, n₁) = embNf n ,, embNf n₁
-  embNf zero = ze
-  embNf (suc n) = sc (embNf n)
-  embNf nil = nil
-  embNf (cons n n₁) = cons (embNf n) (embNf n₁)
 
-  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
-  embNe (var x) = var x
-  embNe (app n x) = app (embNe n) (embNf x)
-  embNe (fst n) = fst (embNe n)
-  embNe (snd n) = snd (embNe n)
-  embNe (rec z f n) = rec (embNf z) (embNf f) (embNe n)
-  embNe (fold z f n) = fold (embNf z) (embNf f) (embNe n)
 
 -- the type of renamings: functions mapping variables in one context to
 -- variables in another
@@ -127,8 +107,6 @@ mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Nf Δ σ → Nf Γ σ
   renNf α (lam n) = lam (renNf (wk α) n)
   renNf α (ne n) = ne (renNe α n)
-  renNf α (nenat n) = nenat (renNe α n)
-  renNf α (ne[] n) = ne[] (renNe α n)
   renNf α (n ,, n₁) = renNf α n ,, renNf α n₁
   renNf α zero = zero
   renNf α (suc n) = suc (renNf α n)
@@ -176,8 +154,6 @@ sub f (cons t t₁) = cons (sub f t) (sub f t₁)
 sub f (fold z fn n) = fold (sub f z) (sub f fn) (sub f n)
 
 
-
-
 subId : ∀{Γ} → Sub Γ Γ
 subId = var
 
@@ -185,12 +161,23 @@ subComp : ∀{B Γ Δ} → Sub Γ Δ → Sub B Γ → Sub B Δ
 subComp f g = sub f ∘ g
 
 
+data ListVal (A B : Set) : Set where
+  ne   : B → ListVal A B
+  nil  : ListVal A B
+  cons : A → ListVal A B → ListVal A B
+
+mapLV : ∀{A B C D} → (A → C) → (B → D) → ListVal A B → ListVal C D
+mapLV f g (ne x) = ne (g x)
+mapLV f g nil = nil
+mapLV f g (cons x xs) = cons (f x) (mapLV f g xs)
+
+
 Val : Con → Ty → Set
 Val Γ ι = Nf Γ ι
 Val Γ nat = Nf Γ nat
 Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ
 Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
-Val Γ [ σ ] = Nf Γ [ σ ]
+Val Γ [ σ ] = ListVal (Val Γ σ) (Ne Γ [ σ ])
 
 
 Env : Con → Con → Set
@@ -220,7 +207,7 @@ renval {Γ} {Δ} {ι} α x = renNf α x
 renval {Γ} {Δ} {nat} α n = renNf α n
 renval {Γ} {Δ} {σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
 renval {Γ} {Δ} {σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
-renval {Γ} {Δ} {[ σ ]} α xs = renNf α xs
+renval {σ = [ σ ]} α xs = mapLV (renval {σ = σ} α) (renNe α) xs
 
 
 renenv : ∀{Γ Δ E} → Ren Δ E → Env Γ Δ → Env Γ E
@@ -235,31 +222,28 @@ mutual
   reify nat x = x
   reify (σ ⇒ τ) x = lam (reify τ (x suc (reflect σ (var zero))))
   reify (σ ∧ τ) x = reify σ (proj₁ x) ,, reify τ (proj₂ x)
-  reify [ σ ] xs = xs
+  reify [ σ ] (ne x) = ne x
+  reify [ σ ] nil = nil
+  reify [ σ ] (cons x xs) = cons (reify σ x) (reify [ σ ] xs)
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι v = ne v
-  reflect nat n = nenat n
+  reflect nat n = ne n
   reflect (σ ⇒ τ) n = λ α v → reflect τ (app (renNe α n) (reify σ v))
   reflect (σ ∧ τ) n = reflect σ (fst n) , reflect τ (snd n)
-  reflect [ σ ] xs = ne[] xs
+  reflect [ σ ] xs = ne xs
 
 
-nfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
-nfold {σ = σ} z f (nenat x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x)
-nfold z f zero = z
-nfold {σ = σ} z f (suc n) = f id (nfold {σ = σ} z f n) 
+natfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
+natfold {σ = σ} z f (ne x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x)
+natfold {σ = σ} z f zero = z
+natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n) 
 
-lfold : ∀{Γ σ τ} → Val Γ τ → (∀{B} → Ren Γ B → Nf B σ → Val B (τ ⇒ τ)) → Nf Γ [ σ ] → Val Γ τ
-lfold {σ = σ}{τ = τ} z f (ne[] x) = reflect τ (fold {σ = σ}{τ = τ} (reify _ z) (lam (reify _ (λ {Δ} → f suc (reify σ (reflect σ (var zero)))))) x)
-lfold z f nil = z
-lfold {τ = τ} z f (cons x xs) = f renId x renId (lfold {τ = τ} z f xs)
+listfold : ∀{Γ σ τ} → Val Γ τ → Val Γ (σ ⇒ τ ⇒ τ) → Val Γ [ σ ] → Val Γ τ
+listfold {σ = σ}{τ = τ} z f (ne x) = reflect τ (fold {σ = σ}{τ = τ} (reify τ z) (reify _ (λ {Δ} → f)) x)
+listfold z f nil = z
+listfold {τ = τ} z f (cons x xs) = f renId x renId (listfold {τ = τ} z f xs)
 
-
-idE : ∀{Γ} → Env Γ Γ
-idE {ε} ()
-idE {Γ < σ} zero = reflect σ (var zero)
-idE {Γ < τ} (suc {σ = σ}{τ = .τ} x) = renval {σ = σ} suc (idE {Γ} x) 
 
 eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
 eval γ (var x) = γ x
@@ -270,11 +254,16 @@ eval γ (fst tm) = proj₁ (eval γ tm)
 eval γ (snd tm) = proj₂ (eval γ tm)
 eval γ ze = zero
 eval γ (sc tm) = suc (eval γ tm)
-eval {σ = σ} γ (rec z f n) = nfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
+eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
 eval γ nil = nil
-eval γ (cons t t₁) = cons (reify _ (eval γ t)) (eval γ t₁)
-eval γ (fold {σ = σ}{τ = τ} z f n) = lfold {σ = σ}{τ = τ} (eval γ z) {! λ α nf α₁ → (eval γ f) α (eval idE (embNf nf)) α₁ !} (eval γ n)
+eval γ (cons t t₁) = cons (eval γ t) (eval γ t₁)
+eval γ (fold {σ = σ}{τ = τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z) (eval γ f) (eval γ n)
 
+
+idE : ∀{Γ} → Env Γ Γ
+idE {ε} ()
+idE {Γ < σ} zero = reflect σ (var zero)
+idE {Γ < τ} (suc {σ = σ}{τ = .τ} x) = renval {σ = σ} suc (idE {Γ} x) 
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
