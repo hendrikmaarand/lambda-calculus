@@ -80,7 +80,13 @@ mutual
     ∎
   evallem γ α nil = refl
   evallem {σ = [ σ ]} γ α (cons t t₁) = cong₂ consLV (evallem γ α t) (evallem γ α t₁)
-  evallem {σ = σ} γ α (tfold z f n) = {!n!} 
+  evallem {σ = τ} γ α (tfold {σ = σ}{τ = ._} z f n) = proof
+    renval {σ = τ} α (listfold {τ = τ} (eval γ z) (eval γ f) (eval γ n)) 
+    ≅⟨ renvallistfold α (eval γ z) (eval γ f) (eval γ n) ⟩
+    listfold {τ = τ} (renval {σ = τ} α (eval γ z)) (renval {σ = σ ⇒ τ ⇒ τ} α (eval γ f)) (renval {σ = [ σ ]} α (eval γ n))
+    ≅⟨ cong₃ listfold (evallem γ α z) (evallem γ α f) (evallem γ α n) ⟩
+    listfold (eval (λ {σ'} → (renval {σ = σ'} α) ∘ γ) z) (eval (λ {σ'} → (renval {σ = σ'} α) ∘ γ) f) (eval (λ {σ'} → (renval {σ = σ'} α) ∘ γ) n)
+    ∎
 
 
 

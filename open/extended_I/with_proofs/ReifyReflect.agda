@@ -210,6 +210,16 @@ renvalnatfold {σ = σ} ρ z f (nsuc n) = proof
   ∎
 
 
+renvalinner : ∀{Γ Δ σ τ} → (f : Val Γ (σ ⇒ τ ⇒ τ))(α : Ren Γ Δ)(x : Val Γ σ)(y : Val Δ τ) → 
+            proj₁ (proj₁ f renId x) α y ≅ proj₁ (proj₁ f α (renval {σ = σ} α x)) renId y
+renvalinner {Γ}{Δ}{σ = σ}{τ = τ} f α x y = proof
+  proj₁ (proj₁ f renId x) α y 
+  ≡⟨⟩
+  proj₁ (renval {σ = τ ⇒ τ} α (proj₁ f renId x)) renId y
+  ≅⟨ cong (λ (f : Val Δ (τ ⇒ τ)) → proj₁ f renId y) (proj₂ f renId α x) ⟩
+  proj₁ (proj₁ f α (renval {σ = σ} α x)) renId y
+  ∎ 
+
 
 renvallistfold : ∀{Γ Δ σ τ} (ρ : Ren Γ Δ)(z : Val Γ τ)(f : Val Γ (σ ⇒ τ ⇒ τ))(n : Val Γ [ σ ]) → renval {σ = τ} ρ (listfold {τ = τ} z f n) ≅ 
               listfold {τ = τ} (renval {σ = τ} ρ z) (renval {σ = σ ⇒ τ ⇒ τ} ρ f) (renval {σ = [ σ ]} ρ n)
@@ -219,12 +229,22 @@ renvallistfold {σ = σ}{τ = τ} ρ z f (neLV x) = proof
   reflect τ (renNe ρ (nfold (reify τ z) (nlam (nlam (reify τ (proj₁ (proj₁ f suc (reflect σ (nvar zero))) suc (reflect τ (nvar zero)))))) x))
   ≅⟨ cong (reflect τ) 
      (cong₃ nfold 
-       (reifyRenval ρ z) 
+       (reifyRenval ρ z) --reify τ (proj₁ (renval {σ = τ ⇒ τ} (wk ρ) (proj₁ f suc (reflect σ (nvar zero)))) suc (reflect τ (nvar zero)))
        (cong (λ x → nlam (nlam x)) (proof
          renNf (wk (wk ρ)) (reify τ (proj₁ (proj₁ f suc (reflect σ (nvar zero))) suc (reflect τ (nvar zero))))
          ≅⟨ reifyRenval (wk (wk ρ)) (proj₁ (proj₁ f suc (reflect σ (nvar zero))) suc (reflect τ (nvar zero))) ⟩
          reify τ (renval {σ = τ} (wk (wk ρ)) (proj₁ (proj₁ f suc (reflect σ (nvar zero))) suc (reflect τ (nvar zero))))
-         ≅⟨ {!!} ⟩
+         ≅⟨ cong (reify τ) (proj₂ (proj₁ f suc (reflect σ (nvar zero))) suc (wk (wk ρ)) (reflect τ (nvar zero)) ) ⟩
+         reify τ (proj₁ (proj₁ f suc (reflect σ (nvar zero))) (renComp suc (wk ρ)) (renval {σ = τ} (wk (wk ρ)) (reflect τ (nvar zero))))
+         ≅⟨ cong (λ x → reify τ (proj₁ (proj₁ f suc (reflect σ (nvar zero))) (renComp suc (wk ρ)) x)) (renvalReflect (wk (wk ρ)) (nvar zero)) ⟩
+         reify τ (proj₁ (proj₁ f suc (reflect σ (nvar zero))) (renComp suc (wk ρ)) (reflect τ (nvar zero)))
+         ≡⟨⟩
+         reify τ (proj₁ (renval {σ = τ ⇒ τ} (wk ρ) (proj₁ f suc (reflect σ (nvar zero)))) suc (reflect τ (nvar zero)))
+         ≅⟨ cong (λ (f : Val _ (τ ⇒ τ)) → reify τ (proj₁ f suc (reflect τ (nvar zero)))) (proj₂ f suc (wk ρ) (reflect σ (nvar zero))) ⟩
+         reify τ (proj₁ (proj₁ f (renComp (wk ρ) suc) (renval {σ = σ} (wk ρ) (reflect σ (nvar zero)))) suc (reflect τ (nvar zero)))
+         ≅⟨ cong (λ x → reify τ (proj₁ (proj₁ f (renComp (wk ρ) suc) x) suc (reflect τ (nvar zero)))) (renvalReflect (wk ρ) (nvar zero)) ⟩
+         reify τ (proj₁ (proj₁ f (renComp (wk ρ) suc) (reflect σ (nvar zero))) suc (reflect τ (nvar zero)))
+         ≡⟨⟩
          reify τ (proj₁ (proj₁ f (renComp suc ρ) (reflect σ (nvar zero))) suc (reflect τ (nvar zero)))
          ∎)) 
        refl) ⟩
@@ -238,7 +258,8 @@ renvallistfold {σ = σ}{τ = τ} ρ z f (consLV x xs) = proof
   ≅⟨ cong (proj₁ (proj₁ f renId x) ρ) (renvallistfold {σ = σ}{τ = τ} ρ z f xs) ⟩
   proj₁ (proj₁ f renId x) ρ (listfold {τ = τ} (renval {σ = τ} ρ z) ((λ {E} β → proj₁ f (renComp β ρ)) ,
        (λ {Δ₁} {Δ'} ρ₁ ρ' v₁ → trans (proj₂ f (renComp ρ₁ ρ) ρ' v₁) refl)) (mapLV (renval {σ = σ} ρ) (renNe ρ) xs))
-  ≅⟨ {!!} ⟩
+  ≅⟨ renvalinner {σ = σ}{τ = τ} f ρ x ((listfold {τ = τ} (renval {σ = τ} ρ z) ((λ {E} β → proj₁ f (renComp β ρ)) ,
+       (λ {Δ₁} {Δ'} ρ₁ ρ' v₁ → trans (proj₂ f (renComp ρ₁ ρ) ρ' v₁) refl)) (mapLV (renval {σ = σ} ρ) (renNe ρ) xs))) ⟩
   proj₁ (proj₁ f (renComp renId ρ) (renval {σ = σ} ρ x)) renId 
     (listfold {τ = τ} (renval {σ = τ} ρ z) ((λ {E} β → proj₁ f (renComp β ρ)) , 
     (λ {Δ₁} {Δ'} ρ₁ ρ' v₁ → trans (proj₂ f (renComp ρ₁ ρ) ρ' v₁) refl)) (mapLV (renval {σ = σ} ρ) (renNe ρ) xs))
