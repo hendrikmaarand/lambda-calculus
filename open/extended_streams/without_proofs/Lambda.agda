@@ -54,6 +54,7 @@ mutual
     _,,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     zero : Nf Γ nat
     suc  : Nf Γ nat → Nf Γ nat
+    stream : ∀{σ} → Nf Γ σ → ∞Nf-stream Γ σ → Nf Γ [ σ ]
     unfold : ∀{σ τ} → Nf Γ σ → Nf Γ (σ ⇒ σ ∧ τ) → Nf Γ [ τ ] 
    
   data Ne (Γ : Con) : Ty → Set where
@@ -64,6 +65,12 @@ mutual
     rec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     hd : ∀{σ} → Ne Γ [ σ ] → Ne Γ σ
     tl : ∀{σ} → Ne Γ [ σ ] → Ne Γ [ σ ]
+
+  record ∞Nf-stream (Γ : Con)(σ : Ty) : Set where
+    coinductive
+    field nforce : Nf Γ [ σ ]
+
+open ∞Nf-stream
     
 
 
@@ -107,22 +114,26 @@ ren α (unfold z f) = unfold (ren α z) (ren α f)
 
 
 mutual
-  renNf : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Nf Δ σ → Nf Γ σ
+  renNf : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Nf Δ σ → Nf Γ σ
   renNf α (lam n) = lam (renNf (wk α) n)
   renNf α (ne n) = ne (renNe α n)
   renNf α (n ,, n₁) = renNf α n ,, renNf α n₁
   renNf α zero = zero
   renNf α (suc n) = suc (renNf α n)
   renNf α (unfold z f) = unfold (renNf α z) (renNf α f)
+  renNf α (stream h t) = stream (renNf α h) (renNf∞ α t)
     
-  renNe : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Ne Δ σ → Ne Γ σ
+  renNe : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Ne Δ σ → Ne Γ σ
   renNe α (var x) = var (α x)
   renNe α (app n n') = app (renNe α n) (renNf α n')
   renNe α (fst n) = fst (renNe α n)
   renNe α (snd n) = snd (renNe α n)
   renNe α (rec z f n) = rec (renNf α z) (renNf α f) (renNe α n)
   renNe α (hd s) = hd (renNe α s) 
-  renNe α (tl s) = tl (renNe α s) 
+  renNe α (tl s) = tl (renNe α s)
+
+  renNf∞ : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → ∞Nf-stream Δ σ → ∞Nf-stream Γ σ
+  nforce (renNf∞ α n) = renNf α (nforce n) 
 
 
 -- the identity renaming (maps variables to themselves)
@@ -163,41 +174,31 @@ subId = var
 subComp : ∀{B Γ Δ} → Sub Γ Δ → Sub B Γ → Sub B Δ
 subComp f g = sub f ∘ g
 
+mutual
+  data StreamVal (A B : Set) : Set where
+    ne : B → StreamVal A B
+    stream : A → ∞StreamVal A B → StreamVal A B
+
+  record ∞StreamVal (A B : Set) : Set where
+    coinductive
+    field vforce : StreamVal A B
+
+open ∞StreamVal
 
 
-
-
-record Stream A : Set where
+record _∞∼_ {A B}(s s' : ∞StreamVal A B) : Set where
   coinductive
-  field head : A
-        tail : Stream A
-open Stream
-
--- Strong bisimilarity
-record _∼_ {A : Set}(s s' : Stream A) : Set where
-  coinductive
-  field hd∼ : head s ≅ head s'
-        tl∼ : tail s ∼ tail s'
-open _∼_
+  field ∼force : vforce s ≅ vforce s'
+open _∞∼_
 
 
-unFold : ∀{A : Set} → ℕ → (ℕ → ℕ × A) → Stream A
-head (unFold s f) = proj₂ (f s)  
-tail (unFold s f) = unFold (proj₁ (f s)) f
+mutual
+  map∞SV : ∀{A B C D} → (A → C) → (B → D) → ∞StreamVal A B → ∞StreamVal C D
+  vforce (map∞SV f g s) = mapSV f g (vforce s)
 
-unfold-1 : ∀{A : Set} → Stream A  → (ℕ × (ℕ → ℕ × A))
-unfold-1 s = {!!} , {!!}
-
---(λ a → proj₂ (unfold-1 (tail s)) a)
-
-mapS : ∀{A B : Set} → (A → B) → Stream A → Stream B
-head (mapS f xs) = f (head xs)
-tail (mapS f xs) = mapS f (tail xs)
-
-
-
-
-
+  mapSV : ∀{A B C D} → (A → C) → (B → D) → StreamVal A B → StreamVal C D
+  mapSV f g (ne x) = ne (g x)
+  mapSV f g (stream h t) = stream (f h) (map∞SV f g t)
 
 
 
@@ -206,8 +207,7 @@ Val Γ ι = Nf Γ ι
 Val Γ nat = Nf Γ nat
 Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ
 Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
-Val Γ [ σ ] = Stream (Val Γ σ)
-
+Val Γ [ σ ] = StreamVal (Val Γ σ) (Ne Γ [ σ ])
 
 
 Env : Con → Con → Set
@@ -237,8 +237,7 @@ renval {Γ} {Δ} {ι} α x = renNf α x
 renval {Γ} {Δ} {nat} α n = renNf α n
 renval {Γ} {Δ} {σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
 renval {Γ} {Δ} {σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
-renval {Γ} {Δ} {[ σ ]} α s = mapS (renval {σ = σ} α) s
-
+renval {Γ} {Δ} {[ σ ]} α s = mapSV  (renval {σ = σ} α) (renNe α) s
 
 
 
@@ -248,21 +247,26 @@ renenv {Γ < σ} α γ zero = renval {_} {_} {σ} α (γ zero)
 renenv {Γ < σ} α γ (suc x) = renenv α (γ ∘ suc) x 
 
 
+
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
   reify ι x = x
   reify nat x = x
   reify (σ ⇒ τ) x = lam (reify τ (x suc (reflect σ (var zero))))
   reify (σ ∧ τ) x = reify σ (proj₁ x) ,, reify τ (proj₂ x)
-  reify {Γ} [ σ ] s = unfold (reify σ (head s)) {!!} --(reify _ (λ {Δ}(α : Ren Γ Δ)(x : Val Δ σ) → (x , renval α (tail s))))
+  reify [ σ ] (ne x) = ne x
+  reify [ σ ] (stream h t) = stream (reify σ h) (∞reify t)
+
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι v = ne v
   reflect nat n = ne n
   reflect (σ ⇒ τ) n = λ α v → reflect τ (app (renNe α n) (reify σ v))
   reflect (σ ∧ τ) n = reflect σ (fst n) , reflect τ (snd n)
-  head (reflect [ σ ] xs) = reflect σ (hd xs)
-  tail (reflect [ σ ] xs) = reflect [ σ ] (tl xs)
+  reflect [ σ ] xs = ne xs
+  
+  ∞reify : ∀{Γ σ} → ∞StreamVal (Val Γ σ) (Ne Γ [ σ ]) → ∞Nf-stream Γ σ
+  nforce (∞reify s) = reify _ (vforce s)
 
 
 
@@ -271,18 +275,23 @@ natfold {σ = σ} z f (ne x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x
 natfold {σ = σ} z f zero = z
 natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n) 
 
-{-
-lfold : ∀{Γ σ τ} → Val Γ τ → Val Γ (σ ⇒ τ ⇒ τ) → Val Γ [ σ ] → Val Γ τ
-lfold z f n = foldr (λ a b → f renId a renId b) z n
--}
 
-{-
-lfold {σ = σ}{τ = τ} z f (ne x) = reflect τ (fold {σ = σ}{τ = τ} (reify _ z) (reify _ {!!} ) x)
-lfold z f nil = z
-lfold {τ = τ} z f (cons x xs) = (f renId {!!}) renId (lfold z f xs)
--}
+head : ∀{Γ σ} → StreamVal (Val Γ σ) (Ne Γ [ σ ]) → Val Γ σ
+head (ne x) = reflect _ (hd x)
+head (stream h t) = h
 
-{-
+tail : ∀{Γ σ} → StreamVal (Val Γ σ) (Ne Γ [ σ ]) → Val Γ [ σ ]
+tail (ne x) = reflect _ (tl x)
+tail (stream h t) = vforce t 
+
+mutual
+  unFold : ∀{Γ σ τ} → (z : Val Γ σ) → (f : Val Γ (σ ⇒ σ ∧ τ)) → StreamVal (Val Γ τ) (Ne Γ [ τ ])
+  unFold {σ = σ} z f = let z' , v = f renId z in stream v (∞unFold {σ = σ} z' f)
+
+  ∞unFold : ∀{Γ σ τ} → (z : Val Γ σ) → (f : Val Γ (σ ⇒ σ ∧ τ)) → ∞StreamVal (Val Γ τ) (Ne Γ [ τ ])
+  vforce (∞unFold {σ = σ} z f) = unFold {σ = σ} z f
+
+
 eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
 eval γ (var x) = γ x
 eval γ (lam tm) = λ α v → eval (renenv α γ << v) tm
@@ -295,7 +304,7 @@ eval γ (sc tm) = suc (eval γ tm)
 eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
 eval γ (hd s) = head (eval γ s)
 eval γ (tl s) = tail (eval γ s)
-eval γ (unfold {σ = σ}{τ = τ} z f) = unFold {!!} {!!}
+eval γ (unfold {σ = σ}{τ = τ} z f) = unFold {σ = σ} (eval γ z) (eval γ f)
 
 
 idE : ∀{Γ} → Env Γ Γ
@@ -305,5 +314,5 @@ idE {Γ < τ} (suc {σ = σ}{τ = .τ} x) = renval {σ = σ} suc (idE {Γ} x)
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
--}
+
 
