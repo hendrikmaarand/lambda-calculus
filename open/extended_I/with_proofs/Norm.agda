@@ -188,12 +188,11 @@ R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v →
 R∼ {σ = ι} r p = trans∼ (sym∼ p) r 
 R∼ {σ = nat} {v = nenat x} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat} {v = nzero} r p = trans∼ (sym∼ p) r
-R∼ {σ = nat}{t = t}{t' = t'} {v = nsuc n} r p = (proj₁ r) , ((trans∼ (sym∼ p) (proj₁ (proj₂ r))) , (proj₂ (proj₂ r)))
+R∼ {σ = nat}{t = t}{t' = t'} {v = nsuc n} (t'' , t'∼ , t''Rn) p = t'' , ((trans∼ (sym∼ p) t'∼) , t''Rn)
 R∼ {σ = σ ⇒ τ} r p = λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
 R∼ {σ = [ σ ]} {v = neLV x} r p = trans∼ (sym∼ p) r
 R∼ {σ = [ σ ]} {v = nilLV} r p = trans∼ (sym∼ p) r
-R∼ {σ = [ σ ]} {v = consLV x v} r p = (proj₁ r) , 
-  ((proj₁ (proj₂ r)) , (trans∼ (sym∼ p) (proj₁ (proj₂ (proj₂ r))) , (proj₁ (proj₂ (proj₂ (proj₂ r)))) , (proj₂ (proj₂ (proj₂ (proj₂ r))))))
+R∼ {σ = [ σ ]} {v = consLV h tl} (fh , ft , t∼ , tsRvs) p = fh , (ft , ((trans∼ (sym∼ p) t∼) , tsRvs))
 
 
 mutual
@@ -218,14 +217,11 @@ R-ren : ∀{Γ Δ σ}{t : Tm Γ σ}{v : Val Γ σ} → (α : Ren Γ Δ) → σ �
 R-ren {σ = ι}{v = v} α r = trans∼ (ren∼ refl r) (ren-embNf α v)
 R-ren {σ = nat} {v = nenat x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
 R-ren {σ = nat} {v = nzero} α r = ren∼ refl r
-R-ren {σ = nat} {v = nsuc v} α r = (ren α (proj₁ r)) , ((ren∼ refl (proj₁ (proj₂ r))) , R-ren {t = proj₁ r}{v = v} α (proj₂ (proj₂ r)))
+R-ren {σ = nat} {v = nsuc v} α (n , t∼ , nRv) = (ren α n) , ((ren∼ refl t∼) , R-ren {t = n}{v = v} α nRv)
 R-ren {σ = σ ⇒ τ} α r ρ u v₁ x = R∼ {σ = τ} (r (ρ ∘ α) u v₁ x) (congapp∼ (≅to∼ (rencomp ρ α _)) refl∼)
 R-ren {σ = [ σ ]} {v = neLV x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
 R-ren {σ = [ σ ]} {v = nilLV} α r = ren∼ refl r
-R-ren {σ = [ σ ]} {v = consLV v vs} α r = (ren α (proj₁ r)) , 
-  ((ren α (proj₁ (proj₂ r))) , ((ren∼ refl (proj₁ (proj₂ (proj₂ r)))) , 
-    ((R-ren {t = proj₁ r}{v = v} α (proj₁ (proj₂ (proj₂ (proj₂ r))))) , R-ren {t = proj₁ (proj₂ r)}{v = vs} α (proj₂ (proj₂ (proj₂ (proj₂ r))))))) 
-
+R-ren {σ = [ σ ]} {v = consLV v vs} α (hd , tl , t∼ , hdRv , tlRvs) = (ren α hd) , ((ren α tl) , (ren∼ refl t∼) , ((R-ren {t = hd} α hdRv) , (R-ren {t = tl}{v = vs} α tlRvs)))
 
 
 _E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
@@ -256,12 +252,11 @@ mutual
   reifyR ι r = r
   reifyR nat {v = nenat x} r = r
   reifyR nat {v = nzero} r = r
-  reifyR nat {v = nsuc v} r = trans∼ (proj₁ (proj₂ r)) (congsc∼ (reifyR nat {t = proj₁ r}{v = v} (proj₂ (proj₂ r))))
+  reifyR nat {v = nsuc v} (n , t∼ , nRv) = trans∼ t∼ (congsc∼ (reifyR nat {t = n}{v = v} nRv)) 
   reifyR (σ ⇒ τ) r = trans∼ eta∼ (conglam∼ (reifyR τ (r suc (var zero) (reflect σ (nvar zero)) (reflectR σ refl∼))))
   reifyR [ σ ] {v = neLV x} r = r
   reifyR [ σ ] {v = nilLV} r = r
-  reifyR [ σ ] {v = consLV v vs} r = trans∼ (proj₁ (proj₂ (proj₂ r))) 
-         (congcons∼ (reifyR σ (proj₁ (proj₂ (proj₂ (proj₂ r))))) (reifyR [ σ ] {v = vs} (proj₂ (proj₂ (proj₂ (proj₂ r))))))
+  reifyR [ σ ] {v = consLV v vs} (hd , tl , t∼ , hdRv , tlRvs) = trans∼ t∼ (congcons∼ (reifyR σ hdRv) (reifyR [ σ ] {v = vs} tlRvs))
 
   reflectR : ∀{Γ} σ {t : Tm Γ σ}{n : Ne Γ σ} → t ∼ embNe n → σ ∋ t R (reflect σ n)
   reflectR ι p = p
@@ -278,22 +273,21 @@ idEE {Γ < σ} (suc {σ = σ'} x) = R-ren {σ = σ'} suc (idEE x)
 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
          σ ∋ z R zv → (σ ⇒ σ) ∋ f R fv → nat ∋ n R nv → σ ∋ (rec z f n) R natfold {σ = σ} zv fv nv
-natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
-natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nzero} zR fR nR = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congreczero∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
-natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv} {nsuc nv} zR fR nR = R∼ {Γ}{σ} (fR renId (rec z f (proj₁ nR)) (natfold {σ = σ} zv fv nv) 
-         (natfoldR {nv = nv} zR fR (proj₂ (proj₂ nR)))) 
-         (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsc∼ z f (proj₁ nR)))) (congrec∼ refl∼ refl∼ (sym∼ (proj₁ (proj₂ nR)))))
+natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR              = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
+natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nzero} zR fR nR   = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congreczero∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
+natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv}{nsuc nv} zR fR (n' , n∼ , nRnv) = R∼ {Γ}{σ} (fR renId (rec z f n') (natfold {σ = σ} zv fv nv) 
+         (natfoldR {nv = nv} zR fR nRnv)) 
+         (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsc∼ z f n'))) (congrec∼ refl∼ refl∼ (sym∼ n∼)))
+
 
 listfoldR : ∀{Γ σ τ} → {z : Tm Γ τ}{f : Tm Γ (σ ⇒ τ ⇒ τ)}{xs : Tm Γ [ σ ]}{zv : Val Γ τ}{fv : Val Γ (σ ⇒ τ ⇒ τ)}{xsv : Val Γ [ σ ]} → 
          τ ∋ z R zv → (σ ⇒ τ ⇒ τ) ∋ f R fv → [ σ ] ∋ xs R xsv → τ ∋ (tfold z f xs) R listfold {τ = τ} zv fv xsv
 listfoldR {σ = σ}{τ = τ}{f = f}{fv = fv}{xsv = neLV x} zR fR xsR = reflectR τ (congfold∼ (reifyR τ zR) (reifyR (σ ⇒ τ ⇒ τ) {t = f}{v = fv} fR) xsR)
-listfoldR {Γ}{σ}{τ}{z}{f}{xsv = nilLV} zR fR xsR = R∼ {Γ}{τ} zR (trans∼ (sym∼ (congfoldnil∼ z f)) (congfold∼ refl∼ refl∼ (sym∼ xsR)))
-listfoldR {Γ}{σ}{τ}{z}{f}{xs}{zv}{fv}{xsv = consLV x xsv} zR fR xsR = R∼ {Γ}{τ} 
-  (fR renId (proj₁ xsR) x (proj₁ (proj₂ (proj₂ (proj₂ xsR)))) renId 
-      (tfold z f (proj₁ (proj₂ xsR))) (listfold {τ = τ} zv fv xsv) (listfoldR {xsv = xsv} zR fR (proj₂ (proj₂ (proj₂ (proj₂ xsR))))))
-  (trans∼ 
-    (trans∼ (congapp∼ (congapp∼ (≅to∼ (trans (renid (ren renId f)) (renid f))) (≅to∼ (renid (proj₁ xsR)))) refl∼) (sym∼ (congfoldcons∼ z f (proj₁ xsR) (proj₁ (proj₂ xsR)))))
-    (congfold∼ refl∼ refl∼ (sym∼ (proj₁ (proj₂ (proj₂ xsR))))))
+listfoldR {Γ}{σ}{τ}{z}{f}{xsv = nilLV} zR fR xsR                 = R∼ {Γ}{τ} zR (trans∼ (sym∼ (congfoldnil∼ z f)) (congfold∼ refl∼ refl∼ (sym∼ xsR)))
+listfoldR {Γ}{σ}{τ}{z}{f}{xs}{zv}{fv}{consLV xv xsv'} zR fR (hd , tl , xs∼ , hdRxv , tlRxsv') = R∼ {Γ}{τ} (fR renId hd xv hdRxv renId 
+      (tfold z f tl) (listfold {τ = τ} zv fv xsv') (listfoldR {xsv = xsv'} zR fR tlRxsv'))
+      (trans∼ (trans∼ (congapp∼ (congapp∼ (≅to∼ (trans (renid (ren renId f)) (renid f))) (≅to∼ (renid hd))) refl∼) (sym∼ (congfoldcons∼ z f hd tl)))
+              (congfold∼ refl∼ refl∼ (sym∼ xs∼)))
 
 
 fund-thm : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t R (eval η t)
