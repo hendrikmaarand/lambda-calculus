@@ -37,7 +37,7 @@ data Tm (Γ : Con) : Ty → Set where
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
   hd   : ∀{σ} → Tm Γ < σ > → Tm Γ σ
   tl   : ∀{σ} → Tm Γ < σ > → Tm Γ < σ >
-  unfold : ∀{σ τ} → Tm Γ σ → Tm Γ (σ ⇒ σ ∧ τ) → Tm Γ < τ >  
+  unfold : ∀{σ τ} → Tm Γ σ → Tm Γ (σ ⇒ σ ∧ τ) → Tm Γ < τ >
 
 mutual 
   data Nf (Γ : Con) : Ty → Set where
@@ -66,8 +66,12 @@ open ∞Nf<>
 
 record _∞Nf∼_ {Γ σ}(s s' : ∞Nf<> Γ σ) : Set where
   coinductive
-  field ≅force : nforce s ≅ nforce s'
+  field ≅nforce : nforce s ≅ nforce s'
 open _∞Nf∼_
+
+-- ??
+postulate ∞NfEq : ∀{Γ σ} → {s s' : ∞Nf<> Γ σ} → (s ∞Nf∼ s') → s ≅ s'
+
 
 
 -- the type of renamings: functions mapping variables in one context to
@@ -93,20 +97,21 @@ wk ρ (vsu y) = vsu (ρ y)
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
 -- change that but we want to rename any other variables in the body.
 
-ren : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Tm Δ σ → Tm Γ σ
-ren α (var x) = var (α x)
-ren α (lam t) = lam (ren (wk α) t)
-ren α (app t u) = app (ren α t) (ren α u)
-ren α (t ,, u) = ren α t ,, ren α u
-ren α (fst t) = fst (ren α t)
-ren α (snd t) = snd (ren α t)
-ren α ze = ze
-ren α (su t) = su (ren α t)
-ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
-ren α (hd t) = hd (ren α t)
-ren α (tl t) = tl (ren α t)
-ren α (unfold z f) = unfold (ren α z) (ren α f)
-
+mutual
+  ren : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Tm Δ σ → Tm Γ σ
+  ren α (var x) = var (α x)
+  ren α (lam t) = lam (ren (wk α) t)
+  ren α (app t u) = app (ren α t) (ren α u)
+  ren α (t ,, u) = ren α t ,, ren α u
+  ren α (fst t) = fst (ren α t)
+  ren α (snd t) = snd (ren α t)
+  ren α ze = ze
+  ren α (su t) = su (ren α t)
+  ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
+  ren α (hd t) = hd (ren α t)
+  ren α (tl t) = tl (ren α t)
+  ren α (unfold z f) = unfold (ren α z) (ren α f)
+  
 
 -- the identity renaming (maps variables to themselves)
 
@@ -148,7 +153,6 @@ mutual
   nforce (renNf∞ α n) = renNf α (nforce n) 
 
 
-
 mutual
   embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
   embNf (nlam n) = lam (embNf n)
@@ -156,7 +160,7 @@ mutual
   embNf (a ,-, b) = embNf a ,, embNf b
   embNf nze = ze
   embNf (nsu n) = su (embNf n)
-  embNf (nstream h t) = {!embNf∞ (nstream h t)!}
+  embNf (nstream h t) = {!!}
   embNf (nunfold z f) = unfold (embNf z) (embNf f)
 
   embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
@@ -168,8 +172,6 @@ mutual
   embNe (nhd n) = hd (embNe n)
   embNe (ntl n) = tl (embNe n)
 
-  embNf∞ : ∀{Γ σ} → ∞Nf<> Γ σ → Tm Γ < σ >
-  embNf∞ s = embNf (nforce s)
 
 
 postulate ext : {A : Set}{B B' : A → Set}{f : ∀ a → B a}{g : ∀ a → B' a} →
@@ -188,25 +190,26 @@ wkid (vsu y) = refl
 
 
 -- if you rename a terms using the id renaming, then the term shouldn't change
-renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅ t
-renid (var x) = refl
-renid (lam y) = proof
-  lam (ren (wk renId) y) 
-  ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
-  lam (ren renId y) 
-  ≅⟨ cong lam (renid y) ⟩
-  lam y
-  ∎ 
-renid (app t u) = cong₂ app (renid t) (renid u) 
-renid ze = refl
-renid (su t) = cong su (renid t)
-renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
-renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
-renid (fst t) = cong fst (renid t)
-renid (snd t) = cong snd (renid t)
-renid (hd t) = cong hd (renid t)
-renid (tl t) = cong tl (renid t)
-renid (unfold z f) = cong₂ unfold (renid z) (renid f)
+mutual
+  renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅ t
+  renid (var x) = refl
+  renid (lam y) = proof
+    lam (ren (wk renId) y) 
+    ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
+    lam (ren renId y) 
+    ≅⟨ cong lam (renid y) ⟩
+    lam y
+    ∎ 
+  renid (app t u) = cong₂ app (renid t) (renid u) 
+  renid ze = refl
+  renid (su t) = cong su (renid t)
+  renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
+  renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
+  renid (fst t) = cong fst (renid t)
+  renid (snd t) = cong snd (renid t)
+  renid (hd t) = cong hd (renid t)
+  renid (tl t) = cong tl (renid t)
+  renid (unfold z f) = cong₂ unfold (renid z) (renid f)
 
 
 
@@ -242,7 +245,6 @@ rencomp f g (unfold z fn) = cong₂ unfold (rencomp f g z) (rencomp f g fn)
 
 
 
-
 mutual
   rennecomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Ne Γ σ) → renNe ρ' (renNe ρ v) ≅ renNe (ρ' ∘ ρ) v
   rennecomp ρ' ρ (nvar x) = refl
@@ -266,13 +268,12 @@ mutual
   rennfcomp ρ' ρ nze = refl
   rennfcomp ρ' ρ (nsu v) = cong nsu (rennfcomp ρ' ρ v)
   rennfcomp ρ' ρ (a ,-, b) = cong₂ _,-,_ (rennfcomp ρ' ρ a) (rennfcomp ρ' ρ b)
-  rennfcomp ρ' ρ (nstream h t) = cong₂ nstream (rennfcomp ρ' ρ h) (rennfcomp∞ ρ' ρ t)
+  rennfcomp ρ' ρ (nstream h t) = cong₂ nstream (rennfcomp ρ' ρ h) {!!}
   rennfcomp ρ' ρ (nunfold z f) = cong₂ nunfold (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f)
   
-  rennfcomp∞ : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞Nf<> Γ σ) → renNf∞ ρ' (renNf∞ ρ v) ≅ renNf∞ (ρ' ∘ ρ) v
-  rennfcomp∞ ρ' ρ v = {!nforce v!}
+  rennfcomp∞ : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞Nf<> Γ σ) → renNf∞ ρ' (renNf∞ ρ v)  ∞Nf∼  renNf∞ (ρ' ∘ ρ) v
+  ≅nforce (rennfcomp∞ ρ' ρ v) = rennfcomp ρ' ρ (nforce v)
   
-
 
 mutual
   renNfId : ∀{Γ σ} → (n : Nf Γ σ) → renNf renId n ≅ n
@@ -287,7 +288,7 @@ mutual
   renNfId nze = refl
   renNfId (nsu n) = cong nsu (renNfId n) 
   renNfId (a ,-, b) = cong₂ _,-,_ (renNfId a) (renNfId b)
-  renNfId (nstream h t) = cong₂ nstream (renNfId h) (renNfId∞ t)
+  renNfId (nstream h t) = cong₂ nstream (renNfId h) (∞NfEq (renNfId∞ t))
   renNfId (nunfold z f) = cong₂ nunfold (renNfId z) (renNfId f)
   
   renNeId : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
@@ -299,8 +300,8 @@ mutual
   renNeId (nhd n) = cong nhd (renNeId n)
   renNeId (ntl n) = cong ntl (renNeId n)
   
-  renNfId∞ : ∀{Γ σ} → (n : ∞Nf<> Γ σ) → renNf∞ renId n ≅ n
-  renNfId∞ n = {!nforce n!}
+  renNfId∞ : ∀{Γ σ} → (n : ∞Nf<> Γ σ) → renNf∞ renId n  ∞Nf∼  n
+  ≅nforce (renNfId∞ n) = renNfId (nforce n)
  
 
 Sub : Con → Con → Set
