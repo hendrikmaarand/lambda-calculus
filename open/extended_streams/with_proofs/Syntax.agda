@@ -97,20 +97,20 @@ wk ρ (vsu y) = vsu (ρ y)
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
 -- change that but we want to rename any other variables in the body.
 
-mutual
-  ren : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Tm Δ σ → Tm Γ σ
-  ren α (var x) = var (α x)
-  ren α (lam t) = lam (ren (wk α) t)
-  ren α (app t u) = app (ren α t) (ren α u)
-  ren α (t ,, u) = ren α t ,, ren α u
-  ren α (fst t) = fst (ren α t)
-  ren α (snd t) = snd (ren α t)
-  ren α ze = ze
-  ren α (su t) = su (ren α t)
-  ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
-  ren α (hd t) = hd (ren α t)
-  ren α (tl t) = tl (ren α t)
-  ren α (unfold z f) = unfold (ren α z) (ren α f)
+
+ren : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Tm Δ σ → Tm Γ σ
+ren α (var x) = var (α x)
+ren α (lam t) = lam (ren (wk α) t)
+ren α (app t u) = app (ren α t) (ren α u)
+ren α (t ,, u) = ren α t ,, ren α u
+ren α (fst t) = fst (ren α t)
+ren α (snd t) = snd (ren α t)
+ren α ze = ze
+ren α (su t) = su (ren α t)
+ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
+ren α (hd t) = hd (ren α t)
+ren α (tl t) = tl (ren α t)
+ren α (unfold z f) = unfold (ren α z) (ren α f)
   
 
 -- the identity renaming (maps variables to themselves)
@@ -190,26 +190,26 @@ wkid (vsu y) = refl
 
 
 -- if you rename a terms using the id renaming, then the term shouldn't change
-mutual
-  renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅ t
-  renid (var x) = refl
-  renid (lam y) = proof
-    lam (ren (wk renId) y) 
-    ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
-    lam (ren renId y) 
-    ≅⟨ cong lam (renid y) ⟩
-    lam y
-    ∎ 
-  renid (app t u) = cong₂ app (renid t) (renid u) 
-  renid ze = refl
-  renid (su t) = cong su (renid t)
-  renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
-  renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
-  renid (fst t) = cong fst (renid t)
-  renid (snd t) = cong snd (renid t)
-  renid (hd t) = cong hd (renid t)
-  renid (tl t) = cong tl (renid t)
-  renid (unfold z f) = cong₂ unfold (renid z) (renid f)
+
+renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅ t
+renid (var x) = refl
+renid (lam y) = proof
+  lam (ren (wk renId) y) 
+  ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
+  lam (ren renId y) 
+  ≅⟨ cong lam (renid y) ⟩
+  lam y
+  ∎ 
+renid (app t u) = cong₂ app (renid t) (renid u) 
+renid ze = refl
+renid (su t) = cong su (renid t)
+renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
+renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
+renid (fst t) = cong fst (renid t)
+renid (snd t) = cong snd (renid t)
+renid (hd t) = cong hd (renid t)
+renid (tl t) = cong tl (renid t)
+renid (unfold z f) = cong₂ unfold (renid z) (renid f)
 
 
 
