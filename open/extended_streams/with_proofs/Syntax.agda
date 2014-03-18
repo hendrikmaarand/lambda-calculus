@@ -39,40 +39,6 @@ data Tm (Γ : Con) : Ty → Set where
   tl   : ∀{σ} → Tm Γ < σ > → Tm Γ < σ >
   unfold : ∀{σ τ} → Tm Γ σ → Tm Γ (σ ⇒ σ ∧ τ) → Tm Γ < τ >
 
-mutual 
-  data Nf (Γ : Con) : Ty → Set where
-    nlam    : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
-    ne      : ∀{σ} → Ne Γ σ → Nf Γ σ
-    _,-,_   : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
-    nze     : Nf Γ nat
-    nsu     : Nf Γ nat → Nf Γ nat
-    nstream : ∀{σ} → Nf Γ σ → ∞Nf<> Γ σ → Nf Γ < σ >
-    nunfold : ∀{σ τ} → Nf Γ σ → Nf Γ (σ ⇒ σ ∧ τ) → Nf Γ < τ > 
-   
-  data Ne (Γ : Con) : Ty → Set where
-    nvar : ∀{σ} → Var Γ σ → Ne Γ σ
-    napp : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
-    nfst : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
-    nsnd : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
-    nrec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
-    nhd  : ∀{σ} → Ne Γ < σ > → Ne Γ σ
-    ntl  : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
-
-  record ∞Nf<> (Γ : Con)(σ : Ty) : Set where
-    coinductive
-    field nforce : Nf Γ < σ >
-
-open ∞Nf<>
-
-record _∞Nf∼_ {Γ σ}(s s' : ∞Nf<> Γ σ) : Set where
-  coinductive
-  field ≅nforce : nforce s ≅ nforce s'
-open _∞Nf∼_
-
--- ??
-postulate ∞NfEq : ∀{Γ σ} → {s s' : ∞Nf<> Γ σ} → (s ∞Nf∼ s') → s ≅ s'
-
-
 
 -- the type of renamings: functions mapping variables in one context to
 -- variables in another
@@ -128,50 +94,6 @@ cong₃ : ∀ {a b c d} {A : Set a} {B : A → Set b} {C : ∀ x → B x → Set
           {x y z u v w}
         (f : (x : A) (y : B x) (z : C x y) → D x y z) → x ≅ u → y ≅ v → z ≅ w  → f x y z ≅ f u v w
 cong₃ f refl refl refl = refl
-
-
-mutual
-  renNf : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Nf Δ σ → Nf Γ σ
-  renNf α (nlam n) = nlam (renNf (wk α) n)
-  renNf α (ne n) = ne (renNe α n)
-  renNf α (a ,-, b) = renNf α a ,-, renNf α b
-  renNf α nze = nze
-  renNf α (nsu n) = nsu (renNf α n)
-  renNf α (nstream h t) = nstream (renNf α h) (renNf∞ α t)
-  renNf α (nunfold z f) = nunfold (renNf α z) (renNf α f)
-
-  renNe : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Ne Δ σ → Ne Γ σ
-  renNe α (nvar x) = nvar (α x)
-  renNe α (napp t u) = napp (renNe α t) (renNf α u)
-  renNe α (nfst n) = nfst (renNe α n)
-  renNe α (nsnd n) = nsnd (renNe α n)
-  renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
-  renNe α (nhd s) = nhd (renNe α s) 
-  renNe α (ntl s) = ntl (renNe α s) 
-
-  renNf∞ : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → ∞Nf<> Δ σ → ∞Nf<> Γ σ
-  nforce (renNf∞ α n) = renNf α (nforce n) 
-
-
-mutual
-  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
-  embNf (nlam n) = lam (embNf n)
-  embNf (ne x) = embNe x
-  embNf (a ,-, b) = embNf a ,, embNf b
-  embNf nze = ze
-  embNf (nsu n) = su (embNf n)
-  embNf (nstream h t) = {!!}
-  embNf (nunfold z f) = unfold (embNf z) (embNf f)
-
-  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
-  embNe (nvar x) = var x
-  embNe (napp t u) = app (embNe t) (embNf u)
-  embNe (nfst n) = fst (embNe n)
-  embNe (nsnd n) = snd (embNe n)
-  embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
-  embNe (nhd n) = hd (embNe n)
-  embNe (ntl n) = tl (embNe n)
-
 
 
 postulate ext : {A : Set}{B B' : A → Set}{f : ∀ a → B a}{g : ∀ a → B' a} →
@@ -243,66 +165,6 @@ rencomp f g (hd t) = cong hd (rencomp f g t)
 rencomp f g (tl t) = cong tl (rencomp f g t)
 rencomp f g (unfold z fn) = cong₂ unfold (rencomp f g z) (rencomp f g fn)
 
-
-
-mutual
-  rennecomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Ne Γ σ) → renNe ρ' (renNe ρ v) ≅ renNe (ρ' ∘ ρ) v
-  rennecomp ρ' ρ (nvar x) = refl
-  rennecomp ρ' ρ (napp t u) = cong₂ napp (rennecomp ρ' ρ t) (rennfcomp ρ' ρ u)
-  rennecomp ρ' ρ (nrec z f n) = cong₃ nrec (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f) (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nfst n) = cong nfst (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nhd n) = cong nhd (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (ntl n) = cong ntl (rennecomp ρ' ρ n)
-  
-
-  rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
-  rennfcomp ρ' ρ (nlam v) =  proof
-    nlam (renNf (wk ρ') (renNf (wk ρ) v)) 
-    ≅⟨ cong nlam (rennfcomp (wk ρ') (wk ρ) v) ⟩
-    nlam (renNf (wk ρ' ∘ wk ρ) v) 
-    ≅⟨ cong nlam (cong (λ (f : Ren _ _) → renNf f v) (iext (λ _ → ext (λ x → sym (wkcomp ρ' ρ x))))) ⟩
-    nlam (renNf (wk (ρ' ∘ ρ)) v)
-    ∎
-  rennfcomp ρ' ρ (ne x) = cong ne (rennecomp ρ' ρ x)
-  rennfcomp ρ' ρ nze = refl
-  rennfcomp ρ' ρ (nsu v) = cong nsu (rennfcomp ρ' ρ v)
-  rennfcomp ρ' ρ (a ,-, b) = cong₂ _,-,_ (rennfcomp ρ' ρ a) (rennfcomp ρ' ρ b)
-  rennfcomp ρ' ρ (nstream h t) = cong₂ nstream (rennfcomp ρ' ρ h) {!!}
-  rennfcomp ρ' ρ (nunfold z f) = cong₂ nunfold (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f)
-  
-  rennfcomp∞ : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞Nf<> Γ σ) → renNf∞ ρ' (renNf∞ ρ v)  ∞Nf∼  renNf∞ (ρ' ∘ ρ) v
-  ≅nforce (rennfcomp∞ ρ' ρ v) = rennfcomp ρ' ρ (nforce v)
-  
-
-mutual
-  renNfId : ∀{Γ σ} → (n : Nf Γ σ) → renNf renId n ≅ n
-  renNfId (nlam n) = proof
-    nlam (renNf (wk renId) n) 
-    ≅⟨ cong (λ (f : Ren _ _) → nlam (renNf f n)) (iext λ σ' → ext λ x → wkid x) ⟩ 
-    nlam (renNf renId n) 
-    ≅⟨ cong nlam (renNfId n) ⟩ 
-    nlam n
-    ∎
-  renNfId (ne x) = cong ne (renNeId x)
-  renNfId nze = refl
-  renNfId (nsu n) = cong nsu (renNfId n) 
-  renNfId (a ,-, b) = cong₂ _,-,_ (renNfId a) (renNfId b)
-  renNfId (nstream h t) = cong₂ nstream (renNfId h) (∞NfEq (renNfId∞ t))
-  renNfId (nunfold z f) = cong₂ nunfold (renNfId z) (renNfId f)
-  
-  renNeId : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
-  renNeId (nvar x) = refl
-  renNeId (napp t u) = cong₂ napp (renNeId t) (renNfId u)
-  renNeId (nrec z f n) = cong₃ nrec (renNfId z) (renNfId f) (renNeId n) 
-  renNeId (nfst n) = cong nfst (renNeId n)
-  renNeId (nsnd n) = cong nsnd (renNeId n)
-  renNeId (nhd n) = cong nhd (renNeId n)
-  renNeId (ntl n) = cong ntl (renNeId n)
-  
-  renNfId∞ : ∀{Γ σ} → (n : ∞Nf<> Γ σ) → renNf∞ renId n  ∞Nf∼  n
-  ≅nforce (renNfId∞ n) = renNfId (nforce n)
- 
 
 Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ
@@ -453,4 +315,3 @@ subcomp f g (snd t) = cong snd (subcomp f g t)
 subcomp f g (hd t) = cong hd (subcomp f g t)
 subcomp f g (tl t) = cong tl (subcomp f g t)
 subcomp f g (unfold z fn) = cong₂ unfold (subcomp f g z) (subcomp f g fn)
-
