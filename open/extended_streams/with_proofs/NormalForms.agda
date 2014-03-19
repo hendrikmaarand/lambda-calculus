@@ -7,6 +7,7 @@ open import Syntax
 open import Function
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
+open import Size
 
 
 
@@ -36,41 +37,42 @@ mutual
 open ∞Nf<>
 
 mutual
-  data _Nf∼_ : ∀{Γ σ} → Nf Γ σ → Nf Γ σ → Set where
-    nlam∼    : ∀{Γ σ τ} → {n n' : Nf (Γ < σ) τ} → n Nf∼ n' → (nlam n) Nf∼ (nlam n') 
-    ne∼      : ∀{Γ σ} → {n n' : Ne Γ σ} → n Ne∼ n' → (ne n) Nf∼ (ne n')  
-    _,∼,_    : ∀{Γ σ τ} → {a a' : Nf Γ σ}{b b' : Nf Γ τ} → a Nf∼ a' → b Nf∼ b' → (a ,-, b) Nf∼ (a' ,-, b') 
-    nze∼     : ∀{Γ} → _Nf∼_ {Γ} nze nze 
-    nsu∼     : ∀{Γ} → {n n' : Nf Γ nat} → n Nf∼ n' → (nsu n) Nf∼ (nsu n')
-    nstream∼ : ∀{Γ σ} → {n n' : Nf Γ σ}{s s' : ∞Nf<> Γ σ} → n Nf∼ n' → s ∞Nf∼ s' → (nstream n s) Nf∼ (nstream n' s')  
-    nunfold∼ : ∀{Γ σ τ} → {z z' : Nf Γ σ}{f f' : Nf Γ (σ ⇒ σ ∧ τ)} → z Nf∼ z' → f Nf∼ f' → (nunfold z f) Nf∼ (nunfold z' f')
+  data _Nf∼_ {i : Size}{Γ : Con} : ∀{σ} → (n n' : Nf Γ σ) → Set where
+    nlam∼    : ∀{σ τ} → {n n' : Nf (Γ < σ) τ} → _Nf∼_ {i} n n' → (nlam n) Nf∼ (nlam n') 
+    ne∼      : ∀{σ} → {n n' : Ne Γ σ} → _Ne∼_ {i} n n' → (ne n) Nf∼ (ne n')  
+    _,∼,_    : ∀{σ τ} → {a a' : Nf Γ σ}{b b' : Nf Γ τ} → _Nf∼_ {i} a a' → _Nf∼_ {i} b b' → (a ,-, b) Nf∼ (a' ,-, b') 
+    nze∼     : _Nf∼_ {i} {Γ} nze nze 
+    nsu∼     : {n n' : Nf Γ nat} → _Nf∼_ {i} n n' → (nsu n) Nf∼ (nsu n')
+    nstream∼ : ∀{σ} → {n n' : Nf Γ σ}{s s' : ∞Nf<> Γ σ} → _Nf∼_ {i} n n' → s ∞Nf⟨ i ⟩∼ s' → (nstream n s) Nf∼ (nstream n' s')  
+    nunfold∼ : ∀{σ τ} → {z z' : Nf Γ σ}{f f' : Nf Γ (σ ⇒ σ ∧ τ)} → _Nf∼_ {i} z z' → _Nf∼_ {i} f f' → (nunfold z f) Nf∼ (nunfold z' f')
 
-  data _Ne∼_ : ∀{Γ σ} → Ne Γ σ → Ne Γ σ → Set where
-    nvar∼ : ∀{Γ σ} → {x x' : Var Γ σ} → x ≅ x' → nvar x Ne∼ nvar x'
-    napp∼ : ∀{Γ σ τ} → {t t' : Ne Γ (σ ⇒ τ)}{u u' : Nf Γ σ} → t Ne∼ t' → u Nf∼ u' → napp t u Ne∼ napp t' u'
-    nfst∼ : ∀{Γ σ τ} → {p p' : Ne Γ (σ ∧ τ)} → p Ne∼ p' → nfst p Ne∼ nfst p' 
-    nsnd∼ : ∀{Γ σ τ} → {p p' : Ne Γ (σ ∧ τ)} → p Ne∼ p' → nsnd p Ne∼ nsnd p' 
-    nrec∼ : ∀{Γ σ} → {z z' : Nf Γ σ}{f f' : Nf Γ (σ ⇒ σ)}{n n' : Ne Γ nat} → z Nf∼ z' → f Nf∼ f' → n Ne∼ n' → nrec z f n Ne∼ nrec z' f' n' 
-    nhd∼  : ∀{Γ σ} → {s s' : Ne Γ < σ >} → s Ne∼ s' → nhd s Ne∼ nhd s' 
-    ntl∼  : ∀{Γ σ} → {s s' : Ne Γ < σ >} → s Ne∼ s' → ntl s Ne∼ ntl s' 
+  data _Ne∼_ {i : Size}{Γ : Con} : ∀{σ} → Ne Γ σ → Ne Γ σ → Set where
+    nvar∼ : ∀{σ} → {x x' : Var Γ σ} → x ≅ x' → nvar x Ne∼ nvar x'
+    napp∼ : ∀{σ τ} → {t t' : Ne Γ (σ ⇒ τ)}{u u' : Nf Γ σ} → _Ne∼_ {i} t t' → _Nf∼_ {i} u u' → napp t u Ne∼ napp t' u'
+    nfst∼ : ∀{σ τ} → {p p' : Ne Γ (σ ∧ τ)} → _Ne∼_ {i} p p' → nfst p Ne∼ nfst p' 
+    nsnd∼ : ∀{σ τ} → {p p' : Ne Γ (σ ∧ τ)} → _Ne∼_ {i} p p' → nsnd p Ne∼ nsnd p' 
+    nrec∼ : ∀{σ} → {z z' : Nf Γ σ}{f f' : Nf Γ (σ ⇒ σ)}{n n' : Ne Γ nat} → _Nf∼_ {i} z z' → _Nf∼_ {i} f f' → _Ne∼_ {i} n n' → nrec z f n Ne∼ nrec z' f' n' 
+    nhd∼  : ∀{σ} → {s s' : Ne Γ < σ >} → _Ne∼_ {i} s s' → nhd s Ne∼ nhd s' 
+    ntl∼  : ∀{σ} → {s s' : Ne Γ < σ >} → _Ne∼_ {i} s s' → ntl s Ne∼ ntl s' 
 
-  record _∞Nf∼_ {Γ σ}(s s' : ∞Nf<> Γ σ) : Set where
+  record _∞Nf⟨_⟩∼_ {Γ σ}(s : ∞Nf<> Γ σ) i (s' : ∞Nf<> Γ σ): Set where
     coinductive
-    field ∼nforce : nforce s Nf∼ nforce s'
+    field ∼nforce : {j : Size< i} → _Nf∼_ {j} (nforce s) (nforce s')
 
-open _∞Nf∼_
+open _∞Nf⟨_⟩∼_
+
 
 mutual
-  nf-refl : ∀{Γ σ} → {n : Nf Γ σ} → n Nf∼ n
+  nf-refl : ∀{Γ σ i} → {n : Nf Γ σ} → _Nf∼_ {i} n n
   nf-refl {n = nlam n} = nlam∼ nf-refl
-  nf-refl {n = ne x} = ne∼ ne-refl
+  nf-refl {i = i}{n = ne x} = ne∼ ne-refl
   nf-refl {n = a ,-, b} = nf-refl ,∼, nf-refl
   nf-refl {n = nze} = nze∼
   nf-refl {n = nsu n} = nsu∼ nf-refl
-  nf-refl {n = nstream n s} = nstream∼ nf-refl ∞nf-refl
+  nf-refl {i = i}{n = nstream n s} = nstream∼ (nf-refl {i = i}) ∞nf-refl
   nf-refl {n = nunfold z f} = nunfold∼ nf-refl nf-refl
 
-  ne-refl : ∀{Γ σ} → {n : Ne Γ σ} → n Ne∼ n
+  ne-refl : ∀{Γ σ i} → {n : Ne Γ σ} → _Ne∼_ {i} n n
   ne-refl {n = nvar x} = nvar∼ refl
   ne-refl {n = napp t u} = napp∼ ne-refl nf-refl
   ne-refl {n = nfst n} = nfst∼ ne-refl
@@ -79,11 +81,12 @@ mutual
   ne-refl {n = nhd n} = nhd∼ ne-refl
   ne-refl {n = ntl n} = ntl∼ ne-refl
   
-  ∞nf-refl : ∀{Γ σ} → {s : ∞Nf<> Γ σ} → s ∞Nf∼ s
+  ∞nf-refl : ∀{Γ σ i} → {s : ∞Nf<> Γ σ} → s ∞Nf⟨ i ⟩∼ s
   ∼nforce (∞nf-refl) = nf-refl
 
+
 mutual
-  nf-sym : ∀{Γ σ} → {n n' : Nf Γ σ} → n Nf∼ n' → n' Nf∼ n
+  nf-sym : ∀{Γ σ i} → {n n' : Nf Γ σ} → _Nf∼_ {i} n n' → _Nf∼_ {i} n' n
   nf-sym (nlam∼ p) = nlam∼ (nf-sym p)
   nf-sym (ne∼ x) = ne∼ (ne-sym x)
   nf-sym (a ,∼, b) = nf-sym a ,∼, nf-sym b
@@ -92,7 +95,7 @@ mutual
   nf-sym (nstream∼ n s) = nstream∼ (nf-sym n) (∞nf-sym s)
   nf-sym (nunfold∼ z f) = nunfold∼ (nf-sym z) (nf-sym f)
   
-  ne-sym : ∀{Γ σ} → {n n' : Ne Γ σ} → n Ne∼ n' → n' Ne∼ n
+  ne-sym : ∀{Γ σ i} → {n n' : Ne Γ σ} → _Ne∼_ {i} n n' → _Ne∼_ {i} n' n
   ne-sym (nvar∼ x) = nvar∼ (sym x)
   ne-sym (napp∼ t u) = napp∼ (ne-sym t) (nf-sym u)
   ne-sym (nfst∼ p) = nfst∼ (ne-sym p)
@@ -101,11 +104,11 @@ mutual
   ne-sym (nhd∼ p) = nhd∼ (ne-sym p)
   ne-sym (ntl∼ p) = ntl∼ (ne-sym p)
 
-  ∞nf-sym : ∀{Γ σ} → {n n' : ∞Nf<> Γ σ} → n ∞Nf∼ n' → n' ∞Nf∼ n
+  ∞nf-sym : ∀{Γ σ i} → {n n' : ∞Nf<> Γ σ} → n ∞Nf⟨ i ⟩∼ n' → n' ∞Nf⟨ i ⟩∼ n
   ∼nforce (∞nf-sym p) = nf-sym (∼nforce p)
 
 mutual
-  nf-trans : ∀{Γ σ} → {k l m : Nf Γ σ} → k Nf∼ l → l Nf∼ m → k Nf∼ m
+  nf-trans : ∀{Γ σ i} → {k l m : Nf Γ σ} → _Nf∼_ {i} k l → _Nf∼_ {i} l m → _Nf∼_ {i} k m
   nf-trans (nlam∼ p) (nlam∼ q) = nlam∼ (nf-trans p q)
   nf-trans (ne∼ p) (ne∼ q) = ne∼ (ne-trans p q)
   nf-trans (a ,∼, b) (a' ,∼, b') = nf-trans a a' ,∼, nf-trans b b'
@@ -114,7 +117,7 @@ mutual
   nf-trans (nstream∼ n s) (nstream∼ n' s') = nstream∼ (nf-trans n n') (∞nf-trans s s')
   nf-trans (nunfold∼ z f) (nunfold∼ z' f') = nunfold∼ (nf-trans z z') (nf-trans f f')
 
-  ne-trans : ∀{Γ σ} → {k l m : Ne Γ σ} → k Ne∼ l → l Ne∼ m → k Ne∼ m
+  ne-trans : ∀{Γ σ i} → {k l m : Ne Γ σ} → _Ne∼_ {i} k l → _Ne∼_ {i} l m → _Ne∼_ {i} k m
   ne-trans (nvar∼ x) (nvar∼ x') = nvar∼ (trans x x')
   ne-trans (napp∼ t u) (napp∼ t' u') = napp∼ (ne-trans t t') (nf-trans u u')
   ne-trans (nfst∼ p) (nfst∼ q) = nfst∼ (ne-trans p q)
@@ -123,15 +126,15 @@ mutual
   ne-trans (nhd∼ p) (nhd∼ q) = nhd∼ (ne-trans p q)
   ne-trans (ntl∼ p) (ntl∼ q) = ntl∼ (ne-trans p q)
 
-  ∞nf-trans : ∀{Γ σ} → {k l m : ∞Nf<> Γ σ} → k ∞Nf∼ l → l ∞Nf∼ m → k ∞Nf∼ m
+  ∞nf-trans : ∀{Γ σ i} → {k l m : ∞Nf<> Γ σ} → k ∞Nf⟨ i ⟩∼ l → l ∞Nf⟨ i ⟩∼ m → k ∞Nf⟨ i ⟩∼ m
   ∼nforce (∞nf-trans p q) = nf-trans (∼nforce p) (∼nforce q)
 
 
-≅toNf∼ : ∀{Γ σ} → {n n' : Nf Γ σ} → n ≅ n' → n Nf∼ n'
+≅toNf∼ : ∀{Γ σ i} → {n n' : Nf Γ σ} → n ≅ n' → _Nf∼_ {i} n n'
 ≅toNf∼ refl = nf-refl
 
+postulate NfEq : ∀{Γ σ i} → {n n' : Nf Γ σ} → _Nf∼_ {i} n n' → n ≅ n'
 
-postulate NfEq : ∀{Γ σ} → {n n' : Nf Γ σ} → n Nf∼ n' → n ≅ n'
 
 mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Nf Δ σ → Nf Γ σ
@@ -157,7 +160,7 @@ mutual
 
 
 mutual
-  rennecomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Ne Γ σ) → renNe ρ' (renNe ρ v) Ne∼ renNe (ρ' ∘ ρ) v
+  rennecomp : ∀{Γ Δ E σ i} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Ne Γ σ) → _Ne∼_ {i} (renNe ρ' (renNe ρ v)) (renNe (ρ' ∘ ρ) v)
   rennecomp ρ' ρ (nvar x) = nvar∼ refl
   rennecomp ρ' ρ (napp t u) = napp∼ (rennecomp ρ' ρ t) (rennfcomp ρ' ρ u)
   rennecomp ρ' ρ (nrec z f n) = nrec∼ (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f) (rennecomp ρ' ρ n)
@@ -166,7 +169,7 @@ mutual
   rennecomp ρ' ρ (nhd n) = nhd∼ (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (ntl n) = ntl∼ (rennecomp ρ' ρ n)
 
-  rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) Nf∼ renNf (ρ' ∘ ρ) v
+  rennfcomp : ∀{Γ Δ E σ i} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → _Nf∼_ {i} (renNf ρ' (renNf ρ v)) (renNf (ρ' ∘ ρ) v)
   rennfcomp ρ' ρ (nlam v) = nlam∼ (nf-trans 
                                   (rennfcomp (wk ρ') (wk ρ) v) 
                                   (≅toNf∼ (cong (λ (f : Ren _ _) → renNf f v) (iext (λ _ → ext (λ x → sym (wkcomp ρ' ρ x)))))))  
@@ -177,13 +180,13 @@ mutual
   rennfcomp ρ' ρ (nstream h t) = nstream∼ (rennfcomp ρ' ρ h) (rennfcomp∞ ρ' ρ t)
   rennfcomp ρ' ρ (nunfold z f) = nunfold∼ (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f)
   
-  rennfcomp∞ : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞Nf<> Γ σ) → renNf∞ ρ' (renNf∞ ρ v)  ∞Nf∼  renNf∞ (ρ' ∘ ρ) v
+  rennfcomp∞ : ∀{Γ Δ E σ i} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞Nf<> Γ σ) → renNf∞ ρ' (renNf∞ ρ v)  ∞Nf⟨ i ⟩∼  renNf∞ (ρ' ∘ ρ) v
   ∼nforce (rennfcomp∞ ρ' ρ v) = rennfcomp ρ' ρ (nforce v)
 
 
 
 mutual
-  rennfid : ∀{Γ σ} → (n : Nf Γ σ) → renNf renId n Nf∼ n
+  rennfid : ∀{Γ σ i} → (n : Nf Γ σ) → _Nf∼_ {i} (renNf renId n) n
   rennfid (nlam n) = nlam∼ (nf-trans 
                            (≅toNf∼ (cong (λ (f : Ren _ _) → (renNf f n)) (iext λ σ' → ext λ x → wkid x))) 
                            (rennfid n)) 
@@ -194,7 +197,7 @@ mutual
   rennfid (nstream h t) = nstream∼ (rennfid h) (rennfid∞ t)
   rennfid (nunfold z f) = nunfold∼ (rennfid z) (rennfid f)
   
-  renneid : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n Ne∼ n
+  renneid : ∀{Γ σ i} → (n : Ne Γ σ) → _Ne∼_ {i} (renNe renId n) n
   renneid (nvar x) = nvar∼ refl
   renneid (napp t u) = napp∼ (renneid t) (rennfid u)
   renneid (nrec z f n) = nrec∼ (rennfid z) (rennfid f) (renneid n)
@@ -203,6 +206,6 @@ mutual
   renneid (nhd n) = nhd∼ (renneid n)
   renneid (ntl n) = ntl∼ (renneid n)
   
-  rennfid∞ : ∀{Γ σ} → (n : ∞Nf<> Γ σ) → renNf∞ renId n  ∞Nf∼  n
+  rennfid∞ : ∀{Γ σ i} → (n : ∞Nf<> Γ σ) → renNf∞ renId n  ∞Nf⟨ i ⟩∼  n
   ∼nforce (rennfid∞ n) = rennfid (nforce n)
  
