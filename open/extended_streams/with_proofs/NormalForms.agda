@@ -34,7 +34,7 @@ mutual
     coinductive
     field nforce : Nf Γ < σ >
 
-open ∞Nf<>
+open ∞Nf<> public
 
 mutual
   data _Nf∼_ {i : Size}{Γ : Con} : ∀{σ} → (n n' : Nf Γ σ) → Set where
@@ -59,7 +59,7 @@ mutual
     coinductive
     field ∼nforce : {j : Size< i} → _Nf∼_ {j} (nforce s) (nforce s')
 
-open _∞Nf⟨_⟩∼_
+open _∞Nf⟨_⟩∼_ public
 
 
 mutual
@@ -133,7 +133,12 @@ mutual
 ≅toNf∼ : ∀{Γ σ i} → {n n' : Nf Γ σ} → n ≅ n' → _Nf∼_ {i} n n'
 ≅toNf∼ refl = nf-refl
 
+≅toNe∼ : ∀{Γ σ i} → {n n' : Ne Γ σ} → n ≅ n' → _Ne∼_ {i} n n'
+≅toNe∼ refl = ne-refl
+
 postulate NfEq : ∀{Γ σ i} → {n n' : Nf Γ σ} → _Nf∼_ {i} n n' → n ≅ n'
+
+postulate NeEq : ∀{Γ σ i} → {n n' : Ne Γ σ} → _Ne∼_ {i} n n' → n ≅ n'
 
 
 mutual

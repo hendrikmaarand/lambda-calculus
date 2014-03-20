@@ -44,6 +44,7 @@ data Tm (Γ : Con) : Ty → Set where
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
   hd   : ∀{σ} → Tm Γ [ σ ] → Tm Γ σ
   tl   : ∀{σ} → Tm Γ [ σ ] → Tm Γ [ σ ]
+  stream : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
   unfold : ∀{σ τ} → Tm Γ σ → Tm Γ (σ ⇒ σ ∧ τ) → Tm Γ [ τ ]  
 
 
@@ -111,6 +112,8 @@ ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
 ren α (hd s) = hd (ren α s)
 ren α (tl s) = tl (ren α s)
 ren α (unfold z f) = unfold (ren α z) (ren α f)
+ren α (stream h t) = stream (ren α h) (ren α t)
+
 
 
 mutual
@@ -166,6 +169,7 @@ sub f (rec z fn n) = rec (sub f z) (sub f fn) (sub f n)
 sub f (hd s) = hd (sub f s)
 sub f (tl s) = tl (sub f s)
 sub f (unfold z fn) = unfold (sub f z) (sub f fn)
+sub f (stream h t) = stream (sub f h) (sub f t)
 
 
 subId : ∀{Γ} → Sub Γ Γ
@@ -291,20 +295,24 @@ mutual
   ∞unFold : ∀{Γ σ τ} → (z : Val Γ σ) → (f : Val Γ (σ ⇒ σ ∧ τ)) → ∞StreamVal (Val Γ τ) (Ne Γ [ τ ])
   vforce (∞unFold {σ = σ} z f) = unFold {σ = σ} z f
 
+mutual
+  eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
+  eval γ (var x) = γ x
+  eval γ (lam tm) = λ α v → eval (renenv α γ << v) tm
+  eval γ (app tm tm₁) = eval γ tm renId (eval γ tm₁)
+  eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
+  eval γ (fst tm) = proj₁ (eval γ tm)
+  eval γ (snd tm) = proj₂ (eval γ tm)
+  eval γ ze = zero
+  eval γ (sc tm) = suc (eval γ tm)
+  eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
+  eval γ (hd s) = head (eval γ s)
+  eval γ (tl s) = tail (eval γ s)
+  eval γ (unfold {σ = σ}{τ = τ} z f) = unFold {σ = σ} (eval γ z) (eval γ f)
+  eval γ (stream h t) = StreamVal.stream (eval γ h) (eval∞ γ t)
 
-eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
-eval γ (var x) = γ x
-eval γ (lam tm) = λ α v → eval (renenv α γ << v) tm
-eval γ (app tm tm₁) = eval γ tm renId (eval γ tm₁)
-eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
-eval γ (fst tm) = proj₁ (eval γ tm)
-eval γ (snd tm) = proj₂ (eval γ tm)
-eval γ ze = zero
-eval γ (sc tm) = suc (eval γ tm)
-eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-eval γ (hd s) = head (eval γ s)
-eval γ (tl s) = tail (eval γ s)
-eval γ (unfold {σ = σ}{τ = τ} z f) = unFold {σ = σ} (eval γ z) (eval γ f)
+  eval∞ : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ [ σ ] → ∞StreamVal (Val Δ σ) (Ne Δ [ σ ])
+  vforce (eval∞ γ s) = eval γ s
 
 
 idE : ∀{Γ} → Env Γ Γ
