@@ -60,15 +60,6 @@ mutual
 
 postulate SVEq : ∀{A B i} → {s s' : StreamVal A B} → _SV∼_ {i} s s' → s ≅ s'
 
-
-mutual
-  ∞mapSV : ∀{A B C D} → (A → C) → (B → D) → ∞StreamVal A B → ∞StreamVal C D
-  vforce (∞mapSV f g s) = mapSV f g (vforce s)
-
-  mapSV : ∀{A B C D} → (A → C) → (B → D) → StreamVal A B → StreamVal C D
-  mapSV f g (neSV x) = neSV (g x)
-  mapSV f g (streamSV h t) = streamSV (f h) (∞mapSV f g t)
-
 mutual
   Val : Con → Ty → Set
   Val Γ ι = Nf Γ ι
@@ -96,7 +87,7 @@ mutual
   renvalSV {σ = σ} α (streamSV h t) = streamSV (renval {σ = σ} α h) (∞renvalSV α t)
   
   ∞renvalSV : ∀{Γ Δ σ} → Ren Γ Δ → ∞StreamVal (Val Γ σ) (Ne Γ < σ >) → ∞StreamVal (Val Δ σ) (Ne Δ < σ >)
-  vforce (∞renvalSV {σ = σ} α v) = renval {σ = < σ >} α (vforce v)
+  vforce (∞renvalSV {σ = σ} α v) = renvalSV α (vforce v)
 
 
 mutual
