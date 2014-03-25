@@ -10,7 +10,6 @@ open ≅-Reasoning renaming (begin_ to proof_)
 open import Size
 
 
-
 mutual 
   data Nf (Γ : Con) : Ty → Set where
     nlam    : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)

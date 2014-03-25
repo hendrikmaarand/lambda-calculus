@@ -89,7 +89,7 @@ renvalinner {Γ}{Δ}{σ = σ}{τ = τ} f α x y = proof
 mutual
   renvalunfold : ∀{Γ Δ σ τ i} → (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ ∧ τ)) →
     _SV∼_ {i} (renval {σ = < τ >} ρ (unFold {σ = σ} z f)) (unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ z) (renval {σ = σ ⇒ σ ∧ τ} ρ f))
-  renvalunfold ρ z (f , p) = sSV∼ (cong proj₂ (p renId ρ z)) {!∞renvalunfold ? ? ?!} 
+  renvalunfold ρ z (f , p) = sSV∼ (cong proj₂ (p renId ρ z)) {!∞renvalunfold ρ (proj₁ (f renId z)) (f , p)!} 
 
   ∞renvalunfold : ∀{Γ Δ σ τ i} → (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ ∧ τ)) →
     (∞renvalSV {σ = τ} ρ (∞unFold {σ = σ} z f)) ∞SV⟨ i ⟩∼(∞unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ z) (renval {σ = σ ⇒ σ ∧ τ} ρ f))
