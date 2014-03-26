@@ -85,13 +85,19 @@ renvalinner {Γ}{Δ}{σ = σ}{τ = τ} f α x y = proof
   proj₁ (proj₁ f α (renval {σ = σ} α x)) renId y
   ∎ 
 
-{-
+mutual
+  unFold-cong : ∀{Γ σ τ i} → {z z' : Val Γ σ} → {f f' : Val Γ (σ ⇒ σ ∧ τ)} → z ≅ z' → f ≅ f' →  _SV∼_ {i} (unFold {σ = σ}{τ = τ} z f) (unFold {σ = σ}{τ = τ} z' f')
+  unFold-cong refl refl = sv-refl
+
+  ∞unFold-cong : ∀{Γ σ τ i} → {z z' : Val Γ σ} → {f f' : Val Γ (σ ⇒ σ ∧ τ)} → z ≅ z' → f ≅ f' → ∞unFold {σ = σ}{τ = τ} z f ∞SV⟨ i ⟩∼ ∞unFold {σ = σ}{τ = τ} z' f'
+  ∼force (∞unFold-cong refl refl) = sv-refl
+
 mutual
   renvalunfold : ∀{Γ Δ σ τ i} → (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ ∧ τ)) →
     _SV∼_ {i} (renval {σ = < τ >} ρ (unFold {σ = σ} z f)) (unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ z) (renval {σ = σ ⇒ σ ∧ τ} ρ f))
-  renvalunfold ρ z (f , p) = sSV∼ (cong proj₂ (p renId ρ z)) {!∞renvalunfold ρ (proj₁ (f renId z)) (f , p)!} 
+  renvalunfold ρ z (f , p) = sSV∼ (cong proj₂ (p renId ρ z)) (∞sv-trans (∞renvalunfold ρ (proj₁ (f renId z)) (f , p)) (∞unFold-cong (cong proj₁ (p renId ρ z)) refl)) 
 
   ∞renvalunfold : ∀{Γ Δ σ τ i} → (ρ : Ren Γ Δ)(z : Val Γ σ)(f : Val Γ (σ ⇒ σ ∧ τ)) →
     (∞renvalSV {σ = τ} ρ (∞unFold {σ = σ} z f)) ∞SV⟨ i ⟩∼(∞unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ z) (renval {σ = σ ⇒ σ ∧ τ} ρ f))
   ∼force (∞renvalunfold ρ z f) = renvalunfold ρ z f
--}
+

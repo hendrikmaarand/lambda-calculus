@@ -85,7 +85,7 @@ mutual
   evallem γ ρ (tl t) = trans (renvaltail ρ (eval γ t)) (cong tail (evallem γ ρ t))
   evallem γ ρ (unfold {σ = σ}{τ = τ} z f) = proof
     renval {σ = < τ >} ρ (unFold (eval γ z) (eval γ f))
-    ≅⟨ {!!} ⟩
+    ≅⟨ SVEq  (renvalunfold {σ = σ} {τ = τ} ρ (eval γ z) (eval γ f)) ⟩
     unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ (eval γ z)) (renval {σ = σ ⇒ σ ∧ τ} ρ (eval γ f))
     ≅⟨ cong₂ unFold (evallem γ ρ z) (evallem γ ρ f) ⟩
     unFold (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f)

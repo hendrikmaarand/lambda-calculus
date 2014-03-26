@@ -51,14 +51,20 @@ mutual
   sv-sym (sSV∼ h t) = sSV∼ (sym h) (∞sv-sym t)
 
   ∞sv-sym : ∀{A B i} → {s s' : ∞StreamVal A B} → s ∞SV⟨ i ⟩∼ s' → s' ∞SV⟨ i ⟩∼ s
-  ∼force (∞sv-sym {i = i} p) = λ {j : Size< i} → sv-sym (∼force p {j})
+  ∼force (∞sv-sym {i = i} p) = sv-sym (∼force p)
 
+mutual
+  sv-trans : ∀{A B i} → {s s' s'' : StreamVal A B} → _SV∼_ {i = i} s s' → _SV∼_ {i = i} s' s'' → _SV∼_ {i = i} s s''
+  sv-trans (neSV∼ x) (neSV∼ x₁) = neSV∼ (trans x x₁) 
+  sv-trans (sSV∼ h t) (sSV∼ h' t') = sSV∼ (trans h h') (∞sv-trans t t')
 
+  ∞sv-trans : ∀{A B i} → {s s' s'' : ∞StreamVal A B} → s ∞SV⟨ i ⟩∼ s' → s' ∞SV⟨ i ⟩∼ s'' → s ∞SV⟨ i ⟩∼ s''
+  ∼force (∞sv-trans p q) = sv-trans (∼force p) (∼force q)
 
 ≅toSV∼ : ∀{A B i} → {s s' : StreamVal A B} → s ≅ s' → _SV∼_ {i} s s'
 ≅toSV∼ refl = sv-refl
 
-postulate SVEq : ∀{A B i} → {s s' : StreamVal A B} → _SV∼_ {i} s s' → s ≅ s'
+postulate SVEq : ∀{A B} → {s s' : StreamVal A B} → _SV∼_ {∞} s s' → s ≅ s'
 
 mutual
   Val : Con → Ty → Set
@@ -96,7 +102,7 @@ mutual
   renvalcomp {σ = nat}{i} ρ' ρ v = NfEq {i = i} (rennfcomp ρ' ρ v) 
   renvalcomp {σ = σ ⇒ τ} ρ' ρ v = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
   renvalcomp {σ = σ ∧ τ}{i} ρ' ρ v = cong₂ _,_ (renvalcomp {σ = σ}{i} ρ' ρ (proj₁ v)) (renvalcomp {σ = τ}{i} ρ' ρ (proj₂ v))
-  renvalcomp {σ = < σ >}{i} ρ' ρ v = SVEq {i = i} (renvalcompSV ρ' ρ v)
+  renvalcomp {σ = < σ >}{i} ρ' ρ v = SVEq (renvalcompSV ρ' ρ v)
 
   renvalcompSV : ∀{Γ Δ E σ} → {i : Size}(ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : StreamVal (Val Γ σ) (Ne Γ < σ >)) → 
                _SV∼_ {i} (renval {σ = < σ >} ρ' (renval {σ = < σ >} ρ v)) (renval {σ = < σ >} (ρ' ∘ ρ) v)
