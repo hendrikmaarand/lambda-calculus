@@ -135,9 +135,9 @@ mutual
 ≅toNe∼ : ∀{Γ σ i} → {n n' : Ne Γ σ} → n ≅ n' → _Ne∼_ {i} n n'
 ≅toNe∼ refl = ne-refl
 
-postulate NfEq : ∀{Γ σ i} → {n n' : Nf Γ σ} → _Nf∼_ {i} n n' → n ≅ n'
+postulate NfEq : ∀{Γ σ} → {n n' : Nf Γ σ} → _Nf∼_ {∞} n n' → n ≅ n'
 
-postulate NeEq : ∀{Γ σ i} → {n n' : Ne Γ σ} → _Ne∼_ {i} n n' → n ≅ n'
+postulate NeEq : ∀{Γ σ} → {n n' : Ne Γ σ} → _Ne∼_ {∞} n n' → n ≅ n'
 
 
 mutual

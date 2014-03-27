@@ -98,15 +98,15 @@ mutual
 
 mutual
   renvalcomp : ∀{Γ Δ E σ} → {i : Size} → (ρ' : Ren Δ E) → (ρ : Ren Γ Δ) → (v : Val Γ σ) → renval {σ = σ} ρ' (renval {σ = σ} ρ v) ≅ renval {σ = σ} (ρ' ∘ ρ) v 
-  renvalcomp {σ = ι}{i} ρ' ρ v = NfEq {i = i} (rennfcomp ρ' ρ v)
-  renvalcomp {σ = nat}{i} ρ' ρ v = NfEq {i = i} (rennfcomp ρ' ρ v) 
+  renvalcomp {σ = ι}{i} ρ' ρ v = NfEq (rennfcomp ρ' ρ v)
+  renvalcomp {σ = nat}{i} ρ' ρ v = NfEq (rennfcomp ρ' ρ v) 
   renvalcomp {σ = σ ⇒ τ} ρ' ρ v = Σeq refl refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ₁ → ext λ ρ'' → ext λ v₁ → ir)
   renvalcomp {σ = σ ∧ τ}{i} ρ' ρ v = cong₂ _,_ (renvalcomp {σ = σ}{i} ρ' ρ (proj₁ v)) (renvalcomp {σ = τ}{i} ρ' ρ (proj₂ v))
   renvalcomp {σ = < σ >}{i} ρ' ρ v = SVEq (renvalcompSV ρ' ρ v)
 
   renvalcompSV : ∀{Γ Δ E σ} → {i : Size}(ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : StreamVal (Val Γ σ) (Ne Γ < σ >)) → 
                _SV∼_ {i} (renval {σ = < σ >} ρ' (renval {σ = < σ >} ρ v)) (renval {σ = < σ >} (ρ' ∘ ρ) v)
-  renvalcompSV {i = i} ρ' ρ (neSV x) = neSV∼ (NeEq {i = i} (rennecomp ρ' ρ x))
+  renvalcompSV {i = i} ρ' ρ (neSV x) = neSV∼ (NeEq (rennecomp ρ' ρ x))
   renvalcompSV {σ = σ}{i} ρ' ρ (streamSV h t) = sSV∼ (renvalcomp {σ = σ}{i} ρ' ρ h) (∞renvalcompSV ρ' ρ t)
 
   ∞renvalcompSV : ∀{Γ Δ E σ i} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : ∞StreamVal (Val Γ σ) (Ne Γ < σ >)) → 
