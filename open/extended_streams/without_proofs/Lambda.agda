@@ -1,4 +1,4 @@
-{-# OPTIONS --copatterns --termination-depth=3 #-}
+{-# OPTIONS --copatterns --termination-depth=2 #-}
 
 module Lambda where
 
@@ -42,9 +42,8 @@ data Tm (Γ : Con) : Ty → Set where
   ze   : Tm Γ nat
   sc   : Tm Γ nat → Tm Γ nat
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
-  hd   : ∀{σ} → Tm Γ [ σ ] → Tm Γ σ
-  tl   : ∀{σ} → Tm Γ [ σ ] → Tm Γ [ σ ]
-  unfold : ∀{σ} → Tm Γ (nat ⇒ σ) → Tm Γ [ σ ]
+  proj : ∀{σ} → ℕ → Tm Γ [ σ ] → Tm Γ σ
+  unfold : ∀{σ} → (ℕ → Tm Γ σ) → Tm Γ [ σ ]
 
 
 mutual 
@@ -54,7 +53,7 @@ mutual
     _,,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     zero : Nf Γ nat
     suc  : Nf Γ nat → Nf Γ nat
-    unfold : ∀{σ}→ Nf Γ (nat ⇒ σ) → Nf Γ [ σ ] 
+    unfold : ∀{σ}→ (ℕ → Nf Γ σ) → Nf Γ [ σ ] 
    
   data Ne (Γ : Con) : Ty → Set where
     var : ∀{σ} → Var Γ σ → Ne Γ σ
@@ -62,15 +61,25 @@ mutual
     fst : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
     snd : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
     rec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
-    hd : ∀{σ} → Ne Γ [ σ ] → Ne Γ σ
-    tl : ∀{σ} → Ne Γ [ σ ] → Ne Γ [ σ ]
+    proj : ∀{σ} → ℕ → Ne Γ [ σ ] → Ne Γ σ
+   
 
-  record ∞Nf-stream (Γ : Con)(σ : Ty) : Set where
-    coinductive
-    field nforce : Nf Γ [ σ ]
+mutual
+  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
+  embNf (lam n) = lam (embNf n)
+  embNf (ne x) = embNe x
+  embNf (a ,, b) = embNf a ,, embNf b
+  embNf zero = ze
+  embNf (suc n) = sc (embNf n)
+  embNf (unfold f) = unfold (λ n → embNf (f n))
 
-open ∞Nf-stream
-    
+  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
+  embNe (var x) = var x
+  embNe (app t u) = app (embNe t) (embNf u)
+  embNe (fst n) = fst (embNe n)
+  embNe (snd n) = snd (embNe n)
+  embNe (rec z f n) = rec (embNf z) (embNf f) (embNe n)
+  embNe (proj n s) = proj n (embNe s)
 
 
 -- the type of renamings: functions mapping variables in one context to
@@ -107,10 +116,8 @@ ren α (snd tm) = snd (ren α tm)
 ren α ze = ze
 ren α (sc tm) = sc (ren α tm)
 ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
-ren α (hd s) = hd (ren α s)
-ren α (tl s) = tl (ren α s)
-ren α (unfold f) = unfold (ren α f)
-
+ren α (unfold f) = unfold (λ n → ren α (f n))
+ren α (proj n s) = proj n (ren α s)
 
 
 
@@ -121,7 +128,7 @@ mutual
   renNf α (n ,, n₁) = renNf α n ,, renNf α n₁
   renNf α zero = zero
   renNf α (suc n) = suc (renNf α n)
-  renNf α (unfold f) = unfold (renNf α f) --unfold (renNf α z) (renNf α f)
+  renNf α (unfold f) = unfold (λ n → renNf α (f n))
 
     
   renNe : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Ne Δ σ → Ne Γ σ
@@ -130,11 +137,7 @@ mutual
   renNe α (fst n) = fst (renNe α n)
   renNe α (snd n) = snd (renNe α n)
   renNe α (rec z f n) = rec (renNf α z) (renNf α f) (renNe α n)
-  renNe α (hd s) = hd (renNe α s) 
-  renNe α (tl s) = tl (renNe α s)
-
-  renNf∞ : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → ∞Nf-stream Δ σ → ∞Nf-stream Γ σ
-  nforce (renNf∞ α n) = renNf α (nforce n) 
+  renNe α (proj n s) = proj n (renNe α s) 
 
 
 -- the identity renaming (maps variables to themselves)
@@ -164,9 +167,8 @@ sub f (snd tm) = snd (sub f tm)
 sub f ze = ze
 sub f (sc tm) = sc (sub f tm)
 sub f (rec z fn n) = rec (sub f z) (sub f fn) (sub f n)
-sub f (hd s) = hd (sub f s)
-sub f (tl s) = tl (sub f s)
-sub f (unfold fn) = unfold (sub f fn)
+sub f (unfold g) = unfold (λ n → sub f (g n))
+sub f (proj n s) = proj n (sub f s) 
 
 
 
@@ -176,40 +178,41 @@ subId = var
 subComp : ∀{B Γ Δ} → Sub Γ Δ → Sub B Γ → Sub B Δ
 subComp f g = sub f ∘ g
 
-mutual
-  data StreamVal (A B : Set) : Set where
-    ne : B → StreamVal A B
-    streamSV : A → ∞StreamVal A B → StreamVal A B
-
-  record ∞StreamVal (A B : Set) : Set where
-    coinductive
-    field vforce : StreamVal A B
-
-open ∞StreamVal
 
 
-record _∞∼_ {A B}(s s' : ∞StreamVal A B) : Set where
+record Stream (A : Set) : Set where
   coinductive
-  field ∼force : vforce s ≅ vforce s'
-open _∞∼_
+  field head : A
+        tail : Stream A
+
+open Stream
 
 
-mutual
-  map∞SV : ∀{A B C D} → (A → C) → (B → D) → ∞StreamVal A B → ∞StreamVal C D
-  vforce (map∞SV f g s) = mapSV f g (vforce s)
+iso1 : ∀{A} → (s : Stream A) → (ℕ → A)
+iso1 s zero = head s
+iso1 s (suc n) = iso1 (tail s) n
 
-  mapSV : ∀{A B C D} → (A → C) → (B → D) → StreamVal A B → StreamVal C D
-  mapSV f g (ne x) = ne (g x)
-  mapSV f g (streamSV h t) = streamSV (f h) (map∞SV f g t)
+iso2 : ∀{A} → (ℕ → A) → Stream A
+head (iso2 f) = f zero
+tail (iso2 f) = iso2 (λ n → f (suc n))  
+
 
 
 
 Val : Con → Ty → Set
 Val Γ ι = Nf Γ ι
 Val Γ nat = Nf Γ nat
-Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ
+Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ 
 Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
-Val Γ [ σ ] = StreamVal (Val Γ σ) (Ne Γ [ σ ])
+Val Γ [ σ ] = Stream (Val Γ σ)
+
+renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
+renval {Γ} {Δ} {ι} α x = renNf α x
+renval {Γ} {Δ} {nat} α n = renNf α n
+renval {Γ} {Δ} {σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
+renval {Γ} {Δ} {σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
+head (renval {Γ} {Δ} {[ σ ]} α s) = renval {σ = σ} α (head s)
+tail (renval {Γ} {Δ} {[ σ ]} α s) = renval {σ = [ σ ]} α (tail s)
 
 
 Env : Con → Con → Set
@@ -234,20 +237,10 @@ _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
 -- to lockup variables in it.
 
 
-renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
-renval {Γ} {Δ} {ι} α x = renNf α x
-renval {Γ} {Δ} {nat} α n = renNf α n
-renval {Γ} {Δ} {σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
-renval {Γ} {Δ} {σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
-renval {Γ} {Δ} {[ σ ]} α s = mapSV  (renval {σ = σ} α) (renNe α) s
-
-
-
 renenv : ∀{Γ Δ E} → Ren Δ E → Env Γ Δ → Env Γ E
 renenv {ε} α γ ()
 renenv {Γ < σ} α γ zero = renval {_} {_} {σ} α (γ zero)
 renenv {Γ < σ} α γ (suc x) = renenv α (γ ∘ suc) x 
-
 
 
 mutual
@@ -256,51 +249,20 @@ mutual
   reify nat x = x
   reify (σ ⇒ τ) x = lam (reify τ (x suc (reflect σ (var zero))))
   reify (σ ∧ τ) x = reify σ (proj₁ x) ,, reify τ (proj₂ x)
-  reify [ σ ] (ne x) = ne x
-  reify [ σ ] (streamSV h t) = unfold (reify (nat ⇒ σ) (fold (streamSV h t)))
+  reify [ σ ] s = unfold (λ n → reify σ (iso1 s n))
 
-  
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι v = ne v
   reflect nat n = ne n
   reflect (σ ⇒ τ) n = λ α v → reflect τ (app (renNe α n) (reify σ v))
-  reflect (σ ∧ τ) n = reflect σ (fst n) , reflect τ (snd n)
-  reflect [ σ ] xs = ne xs
-  
-  ∞reify : ∀{Γ σ} → ∞StreamVal (Val Γ σ) (Ne Γ [ σ ]) → ∞Nf-stream Γ σ
-  nforce (∞reify s) = reify _ (vforce s)
+  reflect (σ ∧ τ) n = (reflect σ (fst n)) , (reflect τ (snd n))
+  reflect [ σ ] xs = iso2 (λ n → reflect σ (proj n xs)) 
 
-  fold : ∀{Γ σ} → StreamVal (Val Γ σ) (Ne Γ [ σ ]) → Val Γ (nat ⇒ σ)
-  fold {Γ}{σ = σ} s {Γ'} ρ n = 
-    natfold {σ = [ σ ] ⇒ σ} 
-      (λ {Δ}(ρ' : Ren Γ' Δ) s → head s)
-      (λ {Δ}(ρ' : Ren Γ' Δ) (f : Val _ ([ σ ] ⇒ σ)){Δ'} (ρ'' : Ren Δ Δ') s' →
-                f ρ'' (tail s')) 
-      n 
-      id (renval {σ = [ σ ]} ρ s)
-
-
-  head : ∀{Γ σ} → StreamVal (Val Γ σ) (Ne Γ [ σ ]) → Val Γ σ
-  head (ne x) = reflect _ (hd x)
-  head (streamSV h t) = h
-
-  tail : ∀{Γ σ} → StreamVal (Val Γ σ) (Ne Γ [ σ ]) → Val Γ [ σ ]
-  tail (ne x) = reflect _ (tl x)
-  tail (streamSV h t) = vforce t 
-
-  natfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
-  natfold {σ = σ} z f (ne x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x)
-  natfold {σ = σ} z f zero = z
-  natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n) 
-
-
-
-mutual
-  unFold : ∀{Γ σ} → (f : Val Γ (nat ⇒ σ)) → StreamVal (Val Γ σ) (Ne Γ [ σ ])
-  unFold f = streamSV (f renId zero) (∞unFold (λ α n → f α (suc n)))
-
-  ∞unFold : ∀{Γ σ} → (f : Val Γ (nat ⇒ σ)) → ∞StreamVal (Val Γ σ) (Ne Γ [ σ ])
-  vforce (∞unFold f) = unFold f
+ 
+natfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
+natfold {σ = σ} z f (ne x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x)
+natfold {σ = σ} z f zero = z
+natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n)
 
 
 mutual
@@ -314,10 +276,27 @@ mutual
   eval γ ze = zero
   eval γ (sc tm) = suc (eval γ tm)
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-  eval γ (hd s) = head (eval γ s)
-  eval γ (tl s) = tail (eval γ s)
-  eval γ (unfold {σ = σ} f) = unFold (eval γ f)
+  eval γ (unfold {σ = σ} f) = iso2 (λ n → eval γ (f n)) --unFold (eval γ f)
+  eval γ (proj n s) = iso1 (eval γ s) n 
 
+
+data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
+  refl∼  : ∀{Γ}{σ} → {t : Tm Γ σ} → t ∼ t
+  sym∼   : ∀{Γ}{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
+  trans∼ : ∀{Γ}{σ} → {t u v : Tm Γ σ} → t ∼ u → u ∼ v → t ∼ v
+--  beta∼  : ∀{Γ σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
+  eta∼   : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
+  congapp∼  : ∀{Γ σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
+  conglam∼  : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
+  congsc∼   : ∀{Γ} → {t t' : Tm Γ nat} → t ∼ t' → sc t ∼ sc t'
+  congrec∼  : ∀{Γ σ} → {z z' : Tm Γ σ}{f f' : Tm Γ (σ ⇒ σ)}{n n' : Tm Γ nat} → z ∼ z' → f ∼ f' → n ∼ n' → rec z f n ∼ rec z' f' n'
+  congreczero∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ)) → rec z f ze ∼ z
+  congrecsc∼   : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ))(n : Tm Γ nat) → rec z f (sc n) ∼ app f (rec z f n)
+  congunfold∼  : ∀{Γ σ} → {f g : ℕ → Tm Γ σ} → (∀ n → f n ∼ g n) → unfold f ∼ unfold g
+  congproj∼    : ∀{Γ σ} → {n : ℕ} → {f g : Tm Γ [ σ ]} → f ∼ g → proj n f ∼ proj n g
+  streambeta∼  : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (unfold f) ∼ f n
+  streameta∼   : ∀{Γ σ} → {s : Tm Γ [ σ ]} → s ∼ unfold (λ n → proj n s) 
+  
 
 idE : ∀{Γ} → Env Γ Γ
 idE {ε} ()
