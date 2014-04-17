@@ -3,12 +3,10 @@ module Norm where
 open import Syntax
 open import Evaluator
 
---open import Data.Nat hiding (_<_)
 open import Data.Product
 open import Function
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
-open import Data.Unit
 
 
 data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
@@ -22,13 +20,13 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
 
 
 idE : ∀{Γ} → Env Γ Γ
-idE {ε} () 
-idE {Γ < σ} zero = reflect σ (nvar zero)
-idE {Γ < σ} (suc x) = renval suc (idE x)
+idE x = reflect _ (nvar x)
+
 
 idEsuc<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((renval suc ∘ idE) << reflect σ (nvar zero)) x
 idEsuc<< zero = refl
-idEsuc<< (suc v) = refl
+idEsuc<< (suc x) = sym (renvalReflect suc (nvar x))
+
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
@@ -61,6 +59,7 @@ renvaleval {Γ}{Δ}{E} γ ρ (app {σ}{τ} t u) = proof
   ≅⟨ sym (proj₂ (eval γ t) renId ρ (eval γ u)) ⟩
   renval ρ (proj₁ (eval γ t) renId (eval γ u))
   ∎
+
 
 renvalId : ∀{Γ σ} → (v : Val Γ σ) → renval renId v ≅ v
 renvalId {Γ} {ι} v = renNfId v
@@ -103,6 +102,7 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
 ≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
 ≅to∼ refl = refl∼
 
+
 sub<<ren : ∀{Γ Δ σ τ} → (α : Ren Γ Δ)(u : Tm Γ σ)(y : Var (Γ < σ) τ) → sub<< var (ren α u) (wk α y) ≅ ren α (sub<< var u y)
 sub<<ren α u zero = refl
 sub<<ren α u (suc x) = refl
@@ -144,6 +144,9 @@ _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
 R∼ {Γ} {ι} r p = trans∼ (sym∼ p) r
 R∼ {Γ} {σ ⇒ τ} r p =  λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
+
+R'∼ : ∀{Γ σ} → {t : Tm Γ σ} → {v v' : Val Γ σ} → σ ∋ t R v → v ≅ v' → σ ∋ t R v'
+R'∼ r refl = r
 
 mutual
   ren-embNf : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Nf Γ σ) → ren α (embNf n) ∼ embNf (renNf α n)
@@ -215,7 +218,7 @@ mutual
 idEE : ∀{Γ} → var E idE {Γ}
 idEE {ε} ()
 idEE {Γ < σ} zero = lem2 σ refl∼
-idEE {Γ < σ} (suc x) = R-ren suc (idEE x)
+idEE {Γ < σ} (suc x) = R'∼ (R-ren suc (idEE x)) (renvalReflect suc (nvar x))
 
 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
@@ -229,7 +232,6 @@ third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm 
 
 
 mutual
-
   stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
   stability {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
     n 
@@ -238,9 +240,20 @@ mutual
     ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
     reify τ (eval ((renval suc ∘ idE) << reflect σ (nvar zero)) (embNf n))
     ∎)
-  stability (ne (nvar x)) = {!!}
-  stability (ne (napp x x₁)) = {!!}
+  stability (ne n) = trans refl (sym (stabilityNe n))
 
-  stabilityNe : ∀{Γ σ} (n : Ne Γ σ) → n ≅ eval idE (embNe n)
-  stabilityNe (nvar x) = {!!}
-  stabilityNe (napp n x) = {!!}
+  stabilityNe : ∀{Γ σ} (n : Ne Γ σ) → norm (embNe n) ≅ reify _ (reflect _ n)
+  stabilityNe (nvar x) = refl
+  stabilityNe (napp n x) = proof
+    norm (app (embNe n) (embNf x)) 
+    ≡⟨⟩
+    reify _ (proj₁ (eval idE (embNe n)) id (eval idE (embNf x)))
+    ≅⟨ {!stability x!} ⟩
+    reify _ (reflect _ (napp n x))
+    ∎
+
+
+-- forall {Γ}{σ}(n : Nf Γ σ) -> (nf ⌜ n ⌝ == n)
+
+-- forall {Γ}{σ}(n : Ne Nf Γ σ) ->  Σ (Ne Val Γ σ) \n' -> (ev ⌜ n ⌝ⁿ ide == nev n') × (quoteⁿ n' == n)
+
