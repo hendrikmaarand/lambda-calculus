@@ -15,7 +15,7 @@ mutual
     _,-,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     nze   : Nf Γ nat
     nsu   : Nf Γ nat → Nf Γ nat
-    ntup  : ∀{σ}→ (ℕ → Nf Γ σ) → Nf Γ < σ > 
+    ntup  : ∀{σ} → (ℕ → Nf Γ σ) → Nf Γ < σ > 
    
   data Ne (Γ : Con) : Ty → Set where
     nvar  : ∀{σ} → Var Γ σ → Ne Γ σ
@@ -24,7 +24,7 @@ mutual
     nsnd  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     nproj : ∀{σ} → ℕ → Ne Γ < σ > → Ne Γ σ
-    ntail : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
+    --ntail : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
 
 nhead : ∀{Γ σ} → Ne Γ < σ > → Ne Γ σ
 nhead n = nproj zero n
@@ -32,6 +32,22 @@ nhead n = nproj zero n
 --ntail : ∀{Γ σ} → Ne Γ < σ > → Ne Γ < σ >
 --ntail n = {!!}
 
+mutual
+  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
+  embNf (nlam n) = lam (embNf n)
+  embNf (ne x) = embNe x
+  embNf (a ,-, b) = embNf a ,, embNf b
+  embNf nze = ze
+  embNf (nsu n) = su (embNf n)
+  embNf (ntup f) = tup (λ n → embNf (f n))
+
+  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
+  embNe (nvar x) = var x
+  embNe (napp t u) = app (embNe t) (embNf u)
+  embNe (nfst n) = fst (embNe n)
+  embNe (nsnd n) = snd (embNe n)
+  embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
+  embNe (nproj n s) = proj n (embNe s)
 
 
 mutual
@@ -50,7 +66,7 @@ mutual
   renNe α (nsnd n) = nsnd (renNe α n)
   renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
   renNe α (nproj n s) = nproj n (renNe α s)
-  renNe α (ntail s) = ntail (renNe α s)
+  --renNe α (ntail s) = ntail (renNe α s)
 
 
 
@@ -62,7 +78,7 @@ mutual
   rennecomp ρ' ρ (nfst n) = cong nfst (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nproj n s) = cong (nproj n) (rennecomp ρ' ρ s)
-  rennecomp ρ' ρ (ntail s) = cong ntail (rennecomp ρ' ρ s)
+  --rennecomp ρ' ρ (ntail s) = cong ntail (rennecomp ρ' ρ s)
 
   rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
   rennfcomp ρ' ρ (nlam v) = proof
@@ -101,5 +117,5 @@ mutual
   renneid (nfst n) = cong nfst (renneid n)
   renneid (nsnd n) = cong nsnd (renneid n)
   renneid (nproj n s) = cong (nproj n) (renneid s)
-  renneid (ntail s) = cong ntail (renneid s)
+  --renneid (ntail s) = cong ntail (renneid s)
 

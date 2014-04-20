@@ -77,7 +77,7 @@ mutual
   renvalIso2 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Ne Γ < σ >) → 
              renval {σ = < σ >} α (iso2 (λ a → reflect σ (nproj a n))) S∼ iso2 (λ a → reflect σ (nproj a (renNe α n)))
   hd∼ (renvalIso2 α n) = renvalReflect α (nproj zero n)
-  tl∼ (renvalIso2 α n) = {!renvalIso2 α (ntail n)!}
+  tl∼ (renvalIso2 α n) = {!iso2 ?!}
 
 
   reifyRenval : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Val Γ σ) → renNf ρ (reify σ n) ≅ reify σ (renval {σ = σ} ρ n)

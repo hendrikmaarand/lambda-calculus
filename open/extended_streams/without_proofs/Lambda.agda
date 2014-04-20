@@ -207,10 +207,10 @@ Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
 Val Γ [ σ ] = Stream (Val Γ σ)
 
 renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
-renval {Γ} {Δ} {ι} α x = renNf α x
-renval {Γ} {Δ} {nat} α n = renNf α n
-renval {Γ} {Δ} {σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
-renval {Γ} {Δ} {σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
+renval {σ = ι} α x = renNf α x
+renval {σ = nat} α n = renNf α n
+renval {σ = σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
+renval {σ = σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
 head (renval {Γ} {Δ} {[ σ ]} α s) = renval {σ = σ} α (head s)
 tail (renval {Γ} {Δ} {[ σ ]} α s) = renval {σ = [ σ ]} α (tail s)
 
@@ -239,7 +239,7 @@ _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
 
 renenv : ∀{Γ Δ E} → Ren Δ E → Env Γ Δ → Env Γ E
 renenv {ε} α γ ()
-renenv {Γ < σ} α γ zero = renval {_} {_} {σ} α (γ zero)
+renenv {Γ < σ} α γ zero = renval {σ = σ} α (γ zero)
 renenv {Γ < σ} α γ (suc x) = renenv α (γ ∘ suc) x 
 
 
@@ -268,8 +268,8 @@ natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n)
 mutual
   eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
   eval γ (var x) = γ x
-  eval γ (lam tm) = λ α v → eval (renenv α γ << v) tm
-  eval γ (app tm tm₁) = eval γ tm renId (eval γ tm₁)
+  eval γ (lam t) = λ α v → eval (renenv α γ << v) t
+  eval γ (app t u) = eval γ t renId (eval γ u)
   eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
   eval γ (fst tm) = proj₁ (eval γ tm)
   eval γ (snd tm) = proj₂ (eval γ tm)

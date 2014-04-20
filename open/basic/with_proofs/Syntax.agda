@@ -105,7 +105,7 @@ renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅  t
 renid (var x) = refl
 renid (lam y) = proof
   lam (ren (wk renId) y) 
-  ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
+  ≅⟨ cong (λ (f : Ren _ _) → lam (ren f y)) (iext (λ _ → ext (λ x → wkid x))) ⟩
   lam (ren renId y) 
   ≅⟨ cong lam (renid y) ⟩
   lam y

@@ -113,10 +113,10 @@ wkid (vsu y) = refl
 -- if you rename a terms using the id renaming, then the term shouldn't change
 
 renid : ∀{Γ σ}(t : Tm Γ σ) → ren renId t ≅ t
-renid (var x) = refl
+renid (var x) = proof var x ≡⟨⟩ var x ∎
 renid (lam y) = proof
   lam (ren (wk renId) y) 
-  ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f y) (iext (λ _ → ext (λ x → wkid x)))) ⟩
+  ≅⟨ cong (λ (f : Ren _ _) → lam (ren f y)) (iext (λ _ → ext wkid)) ⟩
   lam (ren renId y) 
   ≅⟨ cong lam (renid y) ⟩
   lam y
@@ -147,7 +147,7 @@ rencomp : ∀ {B Γ Δ}(f : Ren Γ Δ)(g : Ren B Γ){σ}(t : Tm B σ) →
 rencomp f g (var x) = refl
 rencomp f g (lam t) = proof
   lam (ren (wk (f ∘ g)) t) 
-  ≅⟨ cong lam (cong (λ (f : Ren _ _) → ren f t) (iext (λ _ → ext λ x → wkcomp f g x))) ⟩
+  ≅⟨ cong (λ (f : Ren _ _) → lam (ren f t)) (iext (λ _ → ext (wkcomp f g))) ⟩
   lam (ren ((wk f) ∘ (wk g)) t) 
   ≅⟨ cong lam (rencomp (wk f) (wk g) t) ⟩
   lam (ren (wk f) (ren (wk g) t))
@@ -205,7 +205,7 @@ subid : ∀{Γ σ}(t : Tm Γ σ) → sub subId t ≅ t
 subid (var x) = refl
 subid (lam t) = proof
   lam (sub (lift var) t) 
-  ≅⟨ cong lam (cong (λ (f : Sub _ _) → sub f t) (iext λ _ → ext liftid)) ⟩
+  ≅⟨ cong (λ (f : Sub _ _) → lam (sub f t)) (iext (λ _ → ext liftid)) ⟩
   lam (sub subId t) 
   ≅⟨ cong lam (subid t) ⟩
   lam t
@@ -236,7 +236,7 @@ subren f g (lam t) = proof
   lam (sub (lift f) (ren (wk g) t)) 
   ≅⟨ cong lam (subren (lift f) (wk g) t) ⟩
   lam (sub (lift f ∘ wk g) t) 
-  ≅⟨ cong lam (cong (λ (h : Sub _ _) → sub h t) (iext λ _ → ext (liftwk f g))) ⟩
+  ≅⟨ cong (λ (h : Sub _ _) → lam (sub h t)) (iext (λ _ → ext (liftwk f g))) ⟩
   lam (sub (lift (f ∘ g)) t)
   ∎
 subren f g (app t u) = cong₂ app (subren f g t) (subren f g u)
@@ -263,7 +263,7 @@ rensub f g (lam t) = proof
   lam (ren (wk f) (sub (lift g) t)) 
   ≅⟨ cong lam (rensub (wk f) (lift g) t) ⟩
   lam (sub (ren (wk f) ∘ (lift g)) t) 
-  ≅⟨ cong lam (cong (λ (h : Sub _ _) → sub h t) (iext (λ _ → ext (renwklift f g)))) ⟩
+  ≅⟨ cong (λ (h : Sub _ _) → lam (sub h t)) (iext (λ _ → ext (renwklift f g))) ⟩
   lam (sub (lift (ren f ∘ g)) t)
   ∎
 rensub f g (app t u) = cong₂ app (rensub f g t) (rensub f g u) 
@@ -295,7 +295,7 @@ subcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ}(t : Tm B σ) →
 subcomp f g (var x) = refl
 subcomp f g (lam t) = proof
   lam (sub (lift (sub f ∘ g)) t) 
-  ≅⟨ cong lam (cong (λ (h : Sub _ _) → sub h t) (iext λ _ → ext (liftcomp f g))) ⟩
+  ≅⟨ cong (λ (h : Sub _ _) → lam (sub h t)) (iext (λ _ → ext (liftcomp f g))) ⟩
   lam (sub (sub (lift f) ∘ (lift g)) t) 
   ≅⟨ cong lam (subcomp (lift f) (lift g) t) ⟩
   lam (sub (lift f) (sub (lift g) t))
