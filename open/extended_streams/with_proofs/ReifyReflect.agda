@@ -63,21 +63,13 @@ mutual
       renval {σ = τ} ρ' (reflect τ (napp (renNe ρ₁ (renNe ρ n)) (reify σ v₁)))
       ∎)))
   renvalReflect {Γ} {Δ} {σ ∧ τ} ρ n = cong₂ _,_ (renvalReflect ρ (nfst n)) (renvalReflect ρ (nsnd n))
-  renvalReflect {Γ} {Δ} {< σ >} ρ n = {!!}
-
-{-
-    proof
+  renvalReflect {Γ} {Δ} {< σ >} ρ n = proof
     renval {σ = < σ >} ρ (iso2 (λ a → reflect σ (nproj a n))) 
-    ≅⟨ {!!} ⟩
+    ≅⟨ SEq (renvalIso2 (λ a → reflect σ (nproj a n)) ρ) ⟩
+    iso2 (λ a → renval {σ = σ} ρ (reflect σ (nproj a n)))
+    ≅⟨ cong iso2 (ext (λ a → renvalReflect ρ (nproj a n))) ⟩
     iso2 (λ a → reflect σ (nproj a (renNe ρ n)))
-    ∎ --SEq (renvalIso2 ρ n)
--}
-
-
-  renvalIso2 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Ne Γ < σ >) → 
-             renval {σ = < σ >} α (iso2 (λ a → reflect σ (nproj a n))) S∼ iso2 (λ a → reflect σ (nproj a (renNe α n)))
-  hd∼ (renvalIso2 α n) = renvalReflect α (nproj zero n)
-  tl∼ (renvalIso2 α n) = {!iso2 ?!}
+    ∎
 
 
   reifyRenval : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Val Γ σ) → renNf ρ (reify σ n) ≅ reify σ (renval {σ = σ} ρ n)

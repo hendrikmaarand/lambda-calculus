@@ -34,7 +34,6 @@ data Tm (Γ : Con) : Ty → Set where
   su   : Tm Γ nat → Tm Γ nat
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
   proj : ∀{σ} → ℕ → Tm Γ < σ > → Tm Γ σ
-  tail : ∀{σ} → Tm Γ < σ > → Tm Γ < σ >
   tup  : ∀{σ} → (ℕ → Tm Γ σ) → Tm Γ < σ >
 
 
@@ -74,7 +73,6 @@ ren α ze = ze
 ren α (su t) = su (ren α t)
 ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
 ren α (proj n s) = proj n (ren α s)
-ren α (tail s) = tail (ren α s)
 ren α (tup f) = tup (λ n → ren α (f n))
   
 
@@ -129,7 +127,6 @@ renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
 renid (fst t) = cong fst (renid t)
 renid (snd t) = cong snd (renid t)
 renid (proj n f) = cong (proj n) (renid f) 
-renid (tail s) = cong tail (renid s)
 renid (tup f) = cong tup (ext (λ n → renid (f n)))
 
 
@@ -160,7 +157,6 @@ rencomp f g (a ,, b) = cong₂ _,,_ (rencomp f g a) (rencomp f g b)
 rencomp f g (fst t) = cong fst (rencomp f g t)
 rencomp f g (snd t) = cong snd (rencomp f g t)
 rencomp f g (proj n s) = cong (proj n) (rencomp f g s)
-rencomp f g (tail s) = cong tail (rencomp f g s)
 rencomp f g (tup fn) = cong tup (ext (λ n → rencomp f g (fn n)))
 
 
@@ -182,7 +178,6 @@ sub f (a ,, b) = sub f a ,, sub f b
 sub f (fst t) = fst (sub f t)
 sub f (snd t) = snd (sub f t)
 sub f (proj n s) = proj n (sub f s)
-sub f (tail s) = tail (sub f s)
 sub f (tup g) = tup (λ n → sub f (g n))
 
 
@@ -218,7 +213,6 @@ subid (a ,, b) = cong₂ _,,_ (subid a) (subid b)
 subid (fst t) = cong fst (subid t)
 subid (snd t) = cong snd (subid t)
 subid (proj n s) = cong (proj n) (subid s)
-subid (tail s) = cong tail (subid s)
 subid (tup f) = cong tup (ext (λ n → subid (f n)))
 
 
@@ -247,7 +241,6 @@ subren f g (a ,, b) = cong₂ _,,_ (subren f g a) (subren f g b)
 subren f g (fst t) = cong fst (subren f g t)
 subren f g (snd t) = cong snd (subren f g t)
 subren f g (proj n s) = cong (proj n) (subren f g s)
-subren f g (tail s) = cong tail (subren f g s)
 subren f g (tup fn) = cong tup (ext (λ n → subren f g (fn n)))
 
 
@@ -274,7 +267,6 @@ rensub f g (a ,, b) = cong₂ _,,_ (rensub f g a) (rensub f g b)
 rensub f g (fst t) = cong fst (rensub f g t)
 rensub f g (snd t) = cong snd (rensub f g t)
 rensub f g (proj n s) = cong (proj n) (rensub f g s)
-rensub f g (tail s) = cong tail (rensub f g s)
 rensub f g (tup fn) = cong tup (ext (λ n → rensub f g (fn n)))
 
 
@@ -308,6 +300,5 @@ subcomp f g (a ,, b) = cong₂ _,,_ (subcomp f g a) (subcomp f g b)
 subcomp f g (fst t) = cong fst (subcomp f g t)
 subcomp f g (snd t) = cong snd (subcomp f g t)
 subcomp f g (proj n s) = cong (proj n) (subcomp f g s)
-subcomp f g (tail s) = cong tail (subcomp f g s)
 subcomp f g (tup fn) = cong tup (ext (λ n → subcomp f g (fn n)))
 

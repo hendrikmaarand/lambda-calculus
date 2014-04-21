@@ -22,14 +22,6 @@ record Stream (A : Set) : Set where
 
 open Stream public
 
-iso1 : ∀{A} → (s : Stream A) → (ℕ → A)
-iso1 s zero = shead s
-iso1 s (suc n) = iso1 (stail s) n
-
-iso2 : ∀{A} → (ℕ → A) → Stream A
-shead (iso2 f) = f zero
-stail (iso2 f) = iso2 (λ n → f (suc n))  
-
 record _S∼_ {A : Set}(s s' : Stream A) : Set where
   coinductive
   field hd∼ : shead s ≅ shead s'
@@ -37,6 +29,23 @@ record _S∼_ {A : Set}(s s' : Stream A) : Set where
 open _S∼_ public
 
 postulate SEq : ∀{A} → {s s' : Stream A} → s S∼ s' → s ≅ s'
+
+
+iso1 : ∀{A} → (s : Stream A) → (ℕ → A)
+iso1 s zero = shead s
+iso1 s (suc n) = iso1 (stail s) n
+
+iso2 : ∀{A} → (ℕ → A) → Stream A
+shead (iso2 f) = f zero
+stail (iso2 f) = iso2 (λ n → f (suc n))
+
+iso1iso2 : ∀{A} → (f : ℕ → A) → (n : ℕ) → iso1 (iso2 f) n ≅ f n
+iso1iso2 f zero = refl
+iso1iso2 f (suc n) = iso1iso2 (f ∘ suc) n  
+
+iso2iso1 : ∀{A} → (s : Stream A) → iso2 (iso1 s) S∼ s
+hd∼ (iso2iso1 s) = refl
+tl∼ (iso2iso1 s) = iso2iso1 (stail s)
 
 mutual
   Val : Con → Ty → Set
@@ -65,12 +74,9 @@ renvalIso1 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(s : Stream (Val Γ σ))(n : ℕ)
 renvalIso1 α s zero = refl
 renvalIso1 {σ = σ} α s (suc n) = renvalIso1 {σ = σ} α (stail s) n
 
-
---renvalIso2 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(f : ℕ → Val Γ σ) → renval {σ = < σ >} α (iso2 f) ≅ iso2 (λ n → renval {σ = σ} α (f n))
---renvalIso2 α f = {!!}
-
-
---renval ρ (iso2 (λ a → reflect σ (nproj a n))) ≅ iso2 (λ a → reflect σ (nproj a (renNe ρ n)))
+renvalIso2 : ∀{Γ Δ σ} → (f : ℕ → Val Γ σ) → (α : Ren Γ Δ) → renval {σ = < σ >} α (iso2 f) S∼ iso2 (λ n → renval {σ = σ} α (f n))
+hd∼ (renvalIso2 f α) = refl
+tl∼ (renvalIso2 f α) = renvalIso2 (λ n → f (suc n)) α
 
 
 mutual
@@ -85,6 +91,17 @@ mutual
   hd∼ (∞renvalcomp {σ = σ} ρ' ρ v) = renvalcomp {σ = σ} ρ' ρ (shead v)
   tl∼ (∞renvalcomp {σ = σ} ρ' ρ v) = ∞renvalcomp ρ' ρ (stail v)
 
+mutual
+  renvalid : ∀{Γ σ} → (v : Val Γ σ) → renval {σ = σ} renId v ≅ v
+  renvalid {Γ} {ι}   v = rennfid v
+  renvalid {Γ} {nat} v = rennfid v
+  renvalid {Γ} {σ ⇒ τ} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
+  renvalid {σ = σ ∧ τ} (a , b) = cong₂ _,_ (renvalid {σ = σ} a) (renvalid {σ = τ} b)
+  renvalid {σ = < σ >} s = SEq (∞renvalid s) 
+
+  ∞renvalid : ∀{Γ σ} → (v : Val Γ < σ >) → renval {σ = < σ >} renId v S∼ v
+  hd∼ (∞renvalid {σ = σ} v) = renvalid {σ = σ} (shead v)
+  tl∼ (∞renvalid v) = ∞renvalid (stail v)
 
 
 Env : Con → Con → Set

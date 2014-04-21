@@ -24,7 +24,7 @@ mutual
       eval (λ {σ} → renval {σ = σ} ρ' ∘ ((λ {σ'} → renval {σ = σ'} ρ ∘ γ) << v)) t
       ≅⟨ cong (λ (x : Env _ _) → eval x t) (iext (λ τ → ext (renval<< ρ' (λ {σ} → renval {σ = σ} ρ ∘ γ) v))) ⟩
       eval ((λ {σ} → renval {σ = σ} ρ' ∘ renval {σ = σ} ρ ∘ γ) << renval {σ = σ} ρ' v) t
-      ≅⟨  cong (λ (x : Env _ _) → eval (x << renval {σ = σ} ρ' v) t) (iext (λ a → ext λ y → renvalcomp {σ = a}{∞} ρ' ρ (γ y))) ⟩
+      ≅⟨  cong (λ (x : Env _ _) → eval (x << renval {σ = σ} ρ' v) t) (iext (λ a → ext λ y → renvalcomp {σ = a} ρ' ρ (γ y))) ⟩
       eval ((λ {σ} → renval {σ = σ} (ρ' ∘ ρ) ∘ γ) << renval {σ = σ} ρ' v) t
       ∎)
   eval γ (app t u) = proj₁ (eval γ t) renId (eval γ u)
@@ -34,30 +34,30 @@ mutual
   eval γ ze = nze
   eval γ (su t) = nsu (eval γ t)
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-  eval γ (hd t) = head (eval γ t)
-  eval γ (tl t) = tail (eval γ t)
-  eval γ (unfold {σ = σ}{τ = τ} z f) = unFold {σ = σ} (eval γ z) (eval γ f)
-  
+  eval γ (proj n s) = iso1 (eval γ s) n 
+  eval γ (tup f) = iso2 (λ n → eval γ (f n))
+
+
   evallem : ∀{Γ Δ Δ₁ σ} → (γ : Env Γ Δ)(α : Ren Δ Δ₁)(t : Tm Γ σ) → renval {σ = σ} α (eval γ t) ≅ eval (λ {σ'} → renval {σ = σ'} α ∘ γ) t
   evallem {σ = σ} γ ρ (var x) = proof renval {σ = σ} ρ (γ x) ≡⟨⟩ renval {σ = σ} ρ (γ x) ∎
   evallem {σ = σ ⇒ τ} γ ρ (lam t) = Σeq 
     (iext λ σ → ext λ (α : Ren _ _) → ext λ v → 
       proof 
       eval ((λ {σ'} → renval {σ = σ'} (α ∘ ρ) ∘ γ) << v) t
-      ≅⟨ cong (λ (f : Env _ _) → eval (f << v) t) (iext λ σ₁ → ext λ x → sym (renvalcomp {σ = σ₁}{∞} α ρ (γ x)) ) ⟩ 
+      ≅⟨ cong (λ (f : Env _ _) → eval (f << v) t) (iext λ σ₁ → ext λ x → sym (renvalcomp {σ = σ₁} α ρ (γ x)) ) ⟩ 
       eval ((λ {σ'} → renval {σ = σ'} α ∘ renval {σ = σ'} ρ ∘ γ) << v) t
       ∎)
     refl 
     (iext λ Δ₁ → iext λ Δ' → ext λ (ρ₁ : Ren _ _) → ext λ (ρ'' : Ren _ _) → ext λ v₁ → fixedtypes (
       proof
       eval ((λ {σ'} → renval {σ = σ'} (ρ'' ∘ ρ₁ ∘ ρ) ∘ γ) << renval {σ = σ} ρ'' v₁) t
-      ≅⟨ cong (λ (x : Env _ _) → eval (x << (renval {σ = σ} ρ'' v₁)) t) (iext λ σ' → ext λ y → sym (renvalcomp {σ = σ'}{∞} ρ'' (ρ₁ ∘ ρ) (γ y))) ⟩
+      ≅⟨ cong (λ (x : Env _ _) → eval (x << (renval {σ = σ} ρ'' v₁)) t) (iext λ σ' → ext λ y → sym (renvalcomp {σ = σ'} ρ'' (ρ₁ ∘ ρ) (γ y))) ⟩
       eval ((λ {σ'} → renval {σ = σ'} ρ'' ∘ renval {σ = σ'} (ρ₁ ∘ ρ) ∘ γ) << renval {σ = σ} ρ'' v₁) t
       ≅⟨ cong (λ (γ : Env _ _) → eval γ t) (iext (λ _ → ext (λ x → sym (renval<< ρ'' (λ {σ'} → renval {σ = σ'} (ρ₁ ∘ ρ) ∘ γ) v₁ x )))) ⟩
       eval (λ {σ'} → renval {σ = σ'} ρ'' ∘ ((λ {σ''} → renval {σ = σ''} (ρ₁ ∘ ρ) ∘ γ) << v₁)) t
       ≅⟨ sym (evallem ((λ {σ'} → renval {σ = σ'} (ρ₁ ∘ ρ) ∘ γ) << v₁) ρ'' t) ⟩
       renval {σ = τ} ρ'' (eval ((λ {σ'} → renval {σ = σ'} (ρ₁ ∘ ρ) ∘ γ) << v₁) t)
-      ≅⟨ cong (λ (x : Env _ _) → renval {σ = τ} ρ'' (eval (x << v₁) t)) (iext λ σ' → ext λ y → sym (renvalcomp {σ = σ'}{∞} ρ₁ ρ (γ y))) ⟩ 
+      ≅⟨ cong (λ (x : Env _ _) → renval {σ = τ} ρ'' (eval (x << v₁) t)) (iext λ σ' → ext λ y → sym (renvalcomp {σ = σ'} ρ₁ ρ (γ y))) ⟩ 
       renval {σ = τ} ρ'' (eval ((λ {σ'} → renval {σ = σ'} ρ₁ ∘ renval {σ = σ'} ρ ∘ γ) << v₁) t)
       ∎ ))
   evallem {Δ₁ = Δ₁}{σ = σ} γ ρ (app {σ'} t u) = proof
@@ -81,14 +81,19 @@ mutual
     ≅⟨ cong₃ (natfold {σ = σ}) (evallem γ ρ z) (evallem γ ρ f) (evallem γ ρ n) ⟩
     natfold {σ = σ} (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) n)
     ∎
-  evallem γ ρ (hd t) = trans (renvalhead ρ (eval γ t)) (cong head (evallem γ ρ t))
-  evallem γ ρ (tl t) = trans (renvaltail ρ (eval γ t)) (cong tail (evallem γ ρ t))
-  evallem γ ρ (unfold {σ = σ}{τ = τ} z f) = proof
-    renval {σ = < τ >} ρ (unFold (eval γ z) (eval γ f))
-    ≅⟨ SVEq  (renvalunfold {σ = σ} {τ = τ} ρ (eval γ z) (eval γ f)) ⟩
-    unFold {σ = σ}{τ = τ} (renval {σ = σ} ρ (eval γ z)) (renval {σ = σ ⇒ σ ∧ τ} ρ (eval γ f))
-    ≅⟨ cong₂ unFold (evallem γ ρ z) (evallem γ ρ f) ⟩
-    unFold (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f)
+  evallem {σ = σ} γ ρ (proj n s) = proof
+    renval {σ = σ} ρ (iso1 (eval γ s) n)
+    ≅⟨ renvalIso1 ρ (eval γ s) n ⟩ 
+    iso1 (renval {σ = < σ >} ρ (eval γ s)) n
+    ≅⟨ cong (λ f → iso1 f n) (evallem γ ρ s) ⟩  
+    iso1 (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
+    ∎
+  evallem {σ = < σ >} γ ρ (tup f) = proof
+    renval {σ = < σ >} ρ (iso2 (λ n → eval γ (f n))) 
+    ≅⟨ SEq (renvalIso2 (λ n → eval γ (f n)) ρ) ⟩
+    iso2 (λ n → renval {σ = σ} ρ (eval γ (f n)))
+    ≅⟨ cong iso2 (ext (λ n → evallem γ ρ (f n))) ⟩
+    iso2 (λ n → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (f n))
     ∎
 
 
@@ -112,7 +117,7 @@ reneval {σ = σ ⇒ τ} α β (lam t) = Σeq
   (iext λ Δ' → iext λ Δ'' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypes (
     proof
     eval ((λ {σ'} → renval {σ = σ'} (ρ' ∘ ρ) ∘ β ∘ α) << renval {σ = σ} ρ' v) t
-    ≅⟨ cong (λ (f : Env _ _) → eval (f << renval {σ = σ} ρ' v) t) (iext (λ σ₁ → ext (λ x → sym (renvalcomp {σ = σ₁}{i = ∞} ρ' ρ (β (α x))) ))) ⟩
+    ≅⟨ cong (λ (f : Env _ _) → eval (f << renval {σ = σ} ρ' v) t) (iext (λ σ₁ → ext (λ x → sym (renvalcomp {σ = σ₁} ρ' ρ (β (α x))) ))) ⟩
     eval ((λ {σ'} → (renval {σ = σ'} ρ' ∘ renval {σ = σ'} ρ) ∘ β ∘ α) << renval {σ = σ} ρ' v) t
     ≅⟨ cong (λ (f : Env _ _) → eval f t) (iext λ _ → ext λ x → sym (renval<< ρ' (λ {σ'} → (renval {σ = σ'} ρ ∘ β) ∘ α) v x)) ⟩
     eval (λ {σ₁} → renval {σ = σ₁} ρ' ∘ ((λ {σ'} → (renval {σ = σ'} ρ ∘ β) ∘ α) << v)) t 
@@ -140,11 +145,14 @@ reneval {σ = σ} α β (rec z f n) = cong₃ natfold (reneval α β z) (reneval
 reneval α β (a ,, b) = Σeq (reneval α β a) refl (reneval α β b)
 reneval α β (fst t) = cong proj₁ (reneval α β t)
 reneval α β (snd t) = cong proj₂ (reneval α β t)
-reneval α β (hd t) = cong head (reneval α β t)
-reneval α β (tl t) = cong tail (reneval α β t)
-reneval α β (unfold z f) = cong₂ streamSV 
-  (cong₂ (λ a b → proj₂ (proj₁ a renId b)) (reneval α β f) (reneval α β z)) 
-  (cong₂ ∞unFold (cong₂ (λ a b → proj₁ (proj₁ a renId b)) (reneval α β f) (reneval α β  z)) (reneval α β f))
+reneval α β (proj n s) = proof
+  iso1 (eval (β ∘ α) s) n 
+  ≅⟨ cong (λ f → iso1 f n) (reneval α β s) ⟩
+  iso1 ((eval β ∘ ren α) s) n
+  ≡⟨⟩
+  (eval β ∘ ren α) (proj n s)
+  ∎
+reneval α β (tup f) = cong iso2 (ext (λ n → reneval α β (f n)))
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
@@ -175,7 +183,7 @@ subeval {σ = σ ⇒ τ} α β (lam t) = Σeq
   (iext λ Δ' → iext λ Δ'' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypes (
     proof
     eval ((λ {σ'} → renval {σ = σ'} (ρ' ∘ ρ) ∘ eval β ∘ α) << renval {σ = σ} ρ' v) t 
-    ≅⟨ cong (λ (f : Env _ _) → eval (f << renval {σ = σ} ρ' v) t) (iext λ σ₁ → ext λ x → sym (renvalcomp {σ = σ₁}{∞} ρ' ρ (eval β (α x)))) ⟩ 
+    ≅⟨ cong (λ (f : Env _ _) → eval (f << renval {σ = σ} ρ' v) t) (iext λ σ₁ → ext λ x → sym (renvalcomp {σ = σ₁} ρ' ρ (eval β (α x)))) ⟩ 
     eval ((λ {σ'} → renval {σ = σ'} ρ' ∘ renval {σ = σ'} ρ ∘ eval β ∘ α) << renval {σ = σ} ρ' v) t
     ≅⟨ cong (λ (f : Env _ _ ) → eval f t) (iext λ _ → ext λ x → sym (renval<< ρ' (λ {σ'} → renval {σ = σ'} ρ ∘ eval β ∘ α) v x)) ⟩
     eval (λ {σ'} → renval {σ = σ'} ρ' ∘ (λ {σ''} → renval {σ = σ''} ρ ∘ eval β ∘ α) << v) t
@@ -205,9 +213,6 @@ subeval {σ = σ} α β (rec z f n) = cong₃ natfold (subeval α β z) (subeval
 subeval α β (a ,, b) = Σeq (subeval α β a) refl (subeval α β b)
 subeval α β (fst t)  = cong proj₁ (subeval α β t)
 subeval α β (snd t)  = cong proj₂ (subeval α β t)
-subeval α β (hd t)  = cong head (subeval α β t)
-subeval α β (tl t)  = cong tail (subeval α β t)
-subeval α β (unfold z f) = cong₂ streamSV 
-  (cong₂ (λ a b → proj₂ (proj₁ a renId b)) (subeval α β f) (subeval α β z)) 
-  (cong₂ ∞unFold (cong₂ (λ a b → proj₁ (proj₁ a renId b)) (subeval α β f) (subeval α β z)) (subeval α β f))
+subeval α β (proj n s)  = cong (λ f → iso1 f n) (subeval α β s)
+subeval α β (tup f)  = cong iso2 (ext (λ n → subeval α β (f n)))
 

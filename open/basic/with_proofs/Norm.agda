@@ -240,18 +240,14 @@ mutual
     ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
     reify τ (eval ((renval suc ∘ idE) << reflect σ (nvar zero)) (embNf n))
     ∎)
-  stability (ne n) = trans refl (sym (stabilityNe n))
+  stability (ne n) = sym (stability' n)
 
-  stabilityNe : ∀{Γ σ} (n : Ne Γ σ) → norm (embNe n) ≅ reify _ (reflect _ n)
-  stabilityNe (nvar x) = refl
-  stabilityNe (napp n x) = proof
-    norm (app (embNe n) (embNf x)) 
-    ≡⟨⟩
-    reify _ (proj₁ (eval idE (embNe n)) id (eval idE (embNf x)))
-    ≅⟨ {!stability x!} ⟩
-    reify _ (reflect _ (napp n x))
-    ∎
-
+  stability' : ∀{Γ σ} (n : Ne Γ σ) → eval idE (embNe n) ≅ (reflect _ n)
+  stability' (nvar x) = refl
+  stability' (napp n x) = trans
+                            (fcong (fcong (ifcong (cong proj₁ (stability' n)) _) id)
+                             (eval idE (embNf x)))
+                            (cong (reflect _) (cong₂ napp (renNeId n) (sym (stability x))))
 
 -- forall {Γ}{σ}(n : Nf Γ σ) -> (nf ⌜ n ⌝ == n)
 
