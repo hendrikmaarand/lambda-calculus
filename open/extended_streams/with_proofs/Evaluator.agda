@@ -34,8 +34,8 @@ mutual
   eval γ ze = nze
   eval γ (su t) = nsu (eval γ t)
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-  eval γ (proj n s) = iso1 (eval γ s) n 
-  eval γ (tup f) = iso2 (λ n → eval γ (f n))
+  eval γ (proj n s) = lookup (eval γ s) n 
+  eval γ (tup f) = tabulate (λ n → eval γ (f n))
 
 
   evallem : ∀{Γ Δ Δ₁ σ} → (γ : Env Γ Δ)(α : Ren Δ Δ₁)(t : Tm Γ σ) → renval {σ = σ} α (eval γ t) ≅ eval (λ {σ'} → renval {σ = σ'} α ∘ γ) t
@@ -82,18 +82,18 @@ mutual
     natfold {σ = σ} (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) z) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) f) (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) n)
     ∎
   evallem {σ = σ} γ ρ (proj n s) = proof
-    renval {σ = σ} ρ (iso1 (eval γ s) n)
+    renval {σ = σ} ρ (lookup (eval γ s) n)
     ≅⟨ renvalIso1 ρ (eval γ s) n ⟩ 
-    iso1 (renval {σ = < σ >} ρ (eval γ s)) n
-    ≅⟨ cong (λ f → iso1 f n) (evallem γ ρ s) ⟩  
-    iso1 (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
+    lookup (renval {σ = < σ >} ρ (eval γ s)) n
+    ≅⟨ cong (λ f → lookup f n) (evallem γ ρ s) ⟩  
+    lookup (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
     ∎
   evallem {σ = < σ >} γ ρ (tup f) = proof
-    renval {σ = < σ >} ρ (iso2 (λ n → eval γ (f n))) 
+    renval {σ = < σ >} ρ (tabulate (λ n → eval γ (f n))) 
     ≅⟨ SEq (renvalIso2 (λ n → eval γ (f n)) ρ) ⟩
-    iso2 (λ n → renval {σ = σ} ρ (eval γ (f n)))
-    ≅⟨ cong iso2 (ext (λ n → evallem γ ρ (f n))) ⟩
-    iso2 (λ n → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (f n))
+    tabulate (λ n → renval {σ = σ} ρ (eval γ (f n)))
+    ≅⟨ cong tabulate (ext (λ n → evallem γ ρ (f n))) ⟩
+    tabulate (λ n → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (f n))
     ∎
 
 
@@ -146,13 +146,13 @@ reneval α β (a ,, b) = Σeq (reneval α β a) refl (reneval α β b)
 reneval α β (fst t) = cong proj₁ (reneval α β t)
 reneval α β (snd t) = cong proj₂ (reneval α β t)
 reneval α β (proj n s) = proof
-  iso1 (eval (β ∘ α) s) n 
-  ≅⟨ cong (λ f → iso1 f n) (reneval α β s) ⟩
-  iso1 ((eval β ∘ ren α) s) n
+  lookup (eval (β ∘ α) s) n 
+  ≅⟨ cong (λ f → lookup f n) (reneval α β s) ⟩
+  lookup ((eval β ∘ ren α) s) n
   ≡⟨⟩
   (eval β ∘ ren α) (proj n s)
   ∎
-reneval α β (tup f) = cong iso2 (ext (λ n → reneval α β (f n)))
+reneval α β (tup f) = cong tabulate (ext (λ n → reneval α β (f n)))
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
@@ -213,6 +213,6 @@ subeval {σ = σ} α β (rec z f n) = cong₃ natfold (subeval α β z) (subeval
 subeval α β (a ,, b) = Σeq (subeval α β a) refl (subeval α β b)
 subeval α β (fst t)  = cong proj₁ (subeval α β t)
 subeval α β (snd t)  = cong proj₂ (subeval α β t)
-subeval α β (proj n s)  = cong (λ f → iso1 f n) (subeval α β s)
-subeval α β (tup f)  = cong iso2 (ext (λ n → subeval α β (f n)))
+subeval α β (proj n s)  = cong (λ f → lookup f n) (subeval α β s)
+subeval α β (tup f)  = cong tabulate (ext (λ n → subeval α β (f n)))
 

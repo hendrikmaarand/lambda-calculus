@@ -31,21 +31,22 @@ open _S∼_ public
 postulate SEq : ∀{A} → {s s' : Stream A} → s S∼ s' → s ≅ s'
 
 
-iso1 : ∀{A} → (s : Stream A) → (ℕ → A)
-iso1 s zero = shead s
-iso1 s (suc n) = iso1 (stail s) n
+lookup : ∀{A} → (s : Stream A) → (ℕ → A)
+lookup s zero = shead s
+lookup s (suc n) = lookup (stail s) n
 
-iso2 : ∀{A} → (ℕ → A) → Stream A
-shead (iso2 f) = f zero
-stail (iso2 f) = iso2 (λ n → f (suc n))
+tabulate : ∀{A} → (ℕ → A) → Stream A
+shead (tabulate f) = f zero
+stail (tabulate f) = tabulate (λ n → f (suc n))
 
-iso1iso2 : ∀{A} → (f : ℕ → A) → (n : ℕ) → iso1 (iso2 f) n ≅ f n
-iso1iso2 f zero = refl
-iso1iso2 f (suc n) = iso1iso2 (f ∘ suc) n  
+lookuptab : ∀{A} → (f : ℕ → A) → (n : ℕ) → lookup (tabulate f) n ≅ f n
+lookuptab f zero = refl
+lookuptab f (suc n) = lookuptab (f ∘ suc) n  
 
-iso2iso1 : ∀{A} → (s : Stream A) → iso2 (iso1 s) S∼ s
-hd∼ (iso2iso1 s) = refl
-tl∼ (iso2iso1 s) = iso2iso1 (stail s)
+tablookup : ∀{A} → (s : Stream A) → tabulate (lookup s) S∼ s
+hd∼ (tablookup s) = refl
+tl∼ (tablookup s) = tablookup (stail s)
+
 
 mutual
   Val : Con → Ty → Set
@@ -70,11 +71,11 @@ mutual
   shead (renval {Γ} {Δ} {< σ >} α v) = renval {σ = σ} α (shead v)
   stail (renval {Γ} {Δ} {< σ >} α v) = renval {σ = < σ >} α (stail v)
 
-renvalIso1 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(s : Stream (Val Γ σ))(n : ℕ) → renval {σ = σ} α (iso1 s n) ≅ iso1 (renval {σ = < σ >} α s) n
+renvalIso1 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(s : Stream (Val Γ σ))(n : ℕ) → renval {σ = σ} α (lookup s n) ≅ lookup (renval {σ = < σ >} α s) n
 renvalIso1 α s zero = refl
 renvalIso1 {σ = σ} α s (suc n) = renvalIso1 {σ = σ} α (stail s) n
 
-renvalIso2 : ∀{Γ Δ σ} → (f : ℕ → Val Γ σ) → (α : Ren Γ Δ) → renval {σ = < σ >} α (iso2 f) S∼ iso2 (λ n → renval {σ = σ} α (f n))
+renvalIso2 : ∀{Γ Δ σ} → (f : ℕ → Val Γ σ) → (α : Ren Γ Δ) → renval {σ = < σ >} α (tabulate f) S∼ tabulate (λ n → renval {σ = σ} α (f n))
 hd∼ (renvalIso2 f α) = refl
 tl∼ (renvalIso2 f α) = renvalIso2 (λ n → f (suc n)) α
 

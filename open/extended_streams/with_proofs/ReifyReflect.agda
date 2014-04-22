@@ -22,7 +22,7 @@ mutual
   reify nat v = v
   reify (σ ⇒ τ) v = nlam (reify τ (proj₁ v vsu (reflect σ (nvar vze))))
   reify (σ ∧ τ) v = reify σ (proj₁ v) ,-, reify τ (proj₂ v)
-  reify < σ > v = ntup (λ n → reify σ (iso1 v n))
+  reify < σ > v = ntup (λ n → reify σ (lookup v n))
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι   n = ne n
@@ -38,7 +38,7 @@ mutual
     reflect τ (napp (renNe (ρ' ∘ ρ) n) (reify σ (renval {σ = σ} ρ' v)))
     ∎)
   reflect (σ ∧ τ) n = (reflect σ (nfst n)) , (reflect τ (nsnd n))
-  reflect < σ > n = iso2 (λ a → reflect σ (nproj a n))
+  reflect < σ > n = tabulate (λ a → reflect σ (nproj a n))
 
 
   renvalReflect : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Ne Γ σ) → renval {σ = σ} ρ (reflect σ n) ≅ reflect σ (renNe ρ n)
@@ -64,11 +64,11 @@ mutual
       ∎)))
   renvalReflect {Γ} {Δ} {σ ∧ τ} ρ n = cong₂ _,_ (renvalReflect ρ (nfst n)) (renvalReflect ρ (nsnd n))
   renvalReflect {Γ} {Δ} {< σ >} ρ n = proof
-    renval {σ = < σ >} ρ (iso2 (λ a → reflect σ (nproj a n))) 
+    renval {σ = < σ >} ρ (tabulate (λ a → reflect σ (nproj a n))) 
     ≅⟨ SEq (renvalIso2 (λ a → reflect σ (nproj a n)) ρ) ⟩
-    iso2 (λ a → renval {σ = σ} ρ (reflect σ (nproj a n)))
-    ≅⟨ cong iso2 (ext (λ a → renvalReflect ρ (nproj a n))) ⟩
-    iso2 (λ a → reflect σ (nproj a (renNe ρ n)))
+    tabulate (λ a → renval {σ = σ} ρ (reflect σ (nproj a n)))
+    ≅⟨ cong tabulate (ext (λ a → renvalReflect ρ (nproj a n))) ⟩
+    tabulate (λ a → reflect σ (nproj a (renNe ρ n)))
     ∎
 
 
@@ -85,5 +85,5 @@ mutual
     nlam (reify τ (proj₁ n (vsu ∘ ρ) (reflect σ (nvar vze))))
     ∎
   reifyRenval {σ = σ ∧ τ} ρ v = cong₂ _,-,_ (reifyRenval ρ (proj₁ v)) (reifyRenval ρ (proj₂ v))
-  reifyRenval {σ = < σ >} ρ s = cong ntup (ext (λ n → trans (reifyRenval {σ = σ} ρ (iso1 s n)) (cong (reify σ) (renvalIso1 ρ s n))))
+  reifyRenval {σ = < σ >} ρ s = cong ntup (ext (λ n → trans (reifyRenval {σ = σ} ρ (lookup s n)) (cong (reify σ) (renvalIso1 ρ s n))))
 
