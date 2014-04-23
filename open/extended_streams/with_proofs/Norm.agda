@@ -137,7 +137,7 @@ evalSim (congrec∼ z f n) q = cong₃ natfold (evalSim z q) (evalSim f q) (eval
 evalSim (congrecze∼ z f) refl = refl
 evalSim {σ = σ}{γ = γ} (congrecsu∼ z f n) refl = refl
 evalSim (congpair∼ a b) q = cong₂ _,_ (evalSim a q) (evalSim b q)
-evalSim {γ = γ} (paireta∼ {t = t}) refl = {!!}
+evalSim {γ = γ} (paireta∼ {t = t}) refl = refl
 evalSim pairfst∼ refl = refl
 evalSim pairsnd∼ refl = refl
 evalSim (congfst∼ p) q = cong proj₁ (evalSim p q)
