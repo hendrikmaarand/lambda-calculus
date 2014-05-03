@@ -46,6 +46,10 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
 idE : ∀{Γ} → Env Γ Γ
 idE x = reflect _ (nvar x)
 
+idEsuc<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((λ {σ'} → renval {σ = σ'} vsu ∘ idE) << reflect σ (nvar vze)) x
+idEsuc<< vze = refl
+idEsuc<< (vsu x) = sym (renvalReflect vsu (nvar x))
+
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
@@ -87,14 +91,14 @@ renvaleval {σ = σ} γ ρ (proj n s) = proof
   lookup (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
   ≅⟨ cong (λ s' → lookup s' n) (renvaleval γ ρ s) ⟩
   lookup (renval {σ = < σ >} ρ (eval γ s)) n
-  ≅⟨  sym (renvalIso1 ρ (eval γ s) n)  ⟩
+  ≅⟨  sym (renvallookup ρ (eval γ s) n)  ⟩
   renval {σ = σ} ρ (lookup (eval γ s) n)
   ∎
 renvaleval {σ = < σ >} γ ρ (tup f) = proof
   eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (tup f) 
   ≅⟨ cong tabulate (ext (λ n → renvaleval γ ρ (f n))) ⟩
   tabulate (λ n → renval {σ = σ} ρ (eval γ (f n)))
-  ≅⟨ sym (SEq (renvalIso2 (λ n → eval γ (f n)) ρ)) ⟩
+  ≅⟨ sym (SEq (renvaltab (λ n → eval γ (f n)) ρ)) ⟩
   renval {σ = < σ >} ρ (eval γ (tup f))
   ∎
 
@@ -212,7 +216,7 @@ ren∼ {ρ = ρ}{ρ' = .ρ} refl (streameta∼ {s = s}) = streameta∼ {s = ren 
 
 _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
 ι ∋ t R v = t ∼ embNf (reify ι v)
-nat ∋ t R ne x = t ∼ embNe x
+nat ∋ t R nenat x = t ∼ embNe x
 nat ∋ t R nze = t ∼ ze
 nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
@@ -223,7 +227,7 @@ nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
 R∼ {σ = ι} r p = trans∼ (sym∼ p) r
 R∼ {σ = σ ⇒ τ} r p =  λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
-R∼ {σ = nat} {v = ne x} r p = trans∼ (sym∼ p) r
+R∼ {σ = nat} {v = nenat x} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat} {v = nze} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat}{t = t}{t' = t'} {v = nsu n} (t'' , t'∼ , t''Rn) p = t'' , ((trans∼ (sym∼ p) t'∼) , t''Rn)
 R∼ {σ = σ ∧ τ} {v = v} r p = R∼ (proj₁ r) (congfst∼ p) , R∼ (proj₂ r) (congsnd∼ p)
@@ -238,6 +242,7 @@ mutual
   ren-embNf : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Nf Γ σ) → ren α (embNf n) ∼ embNf (renNf α n)
   ren-embNf α (nlam n) = conglam∼ (ren-embNf (wk α) n)
   ren-embNf α (ne x) = ren-embNe α x
+  ren-embNf α (nenat x) = ren-embNe α x
   ren-embNf α (a ,-, b) = congpair∼ (ren-embNf α a) (ren-embNf α b)
   ren-embNf α nze = refl∼
   ren-embNf α (nsu n) = congsu∼ (ren-embNf α n)
@@ -255,11 +260,11 @@ mutual
 R-ren : ∀{Γ Δ σ}{t : Tm Γ σ}{v : Val Γ σ} → (α : Ren Γ Δ) → σ ∋ t R v → σ ∋ ren α t R renval {σ = σ} α v
 R-ren {σ = ι}{v = v} α r = trans∼ (ren∼ refl r) (ren-embNf α v)
 R-ren {σ = σ ⇒ τ} α r ρ u v₁ x = R∼ {σ = τ} (r (ρ ∘ α) u v₁ x) (congapp∼ (≅to∼ (rencomp ρ α _)) refl∼)
-R-ren {σ = nat} {v = ne x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
+R-ren {σ = nat} {v = nenat x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
 R-ren {σ = nat} {v = nze} α r = ren∼ refl r
 R-ren {σ = nat} {v = nsu v} α (n , t∼ , nRv) = (ren α n) , ((ren∼ refl t∼) , R-ren {t = n}{v = v} α nRv)
 R-ren {σ = σ ∧ τ}{v = v} α r = (R-ren {σ = σ} α (proj₁ r)) , (R-ren {σ = τ} α (proj₂ r))
-R-ren {σ = < σ >}{t = s}{v = v} α r = λ n → R'∼ {t = ren α (proj n s)} (R-ren {σ = σ} α (r n)) (renvalIso1 α v n)
+R-ren {σ = < σ >}{t = s}{v = v} α r = λ n → R'∼ {t = ren α (proj n s)} (R-ren {σ = σ} α (r n)) (renvallookup α v n)
 
 _E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
 ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x R η x
@@ -287,7 +292,7 @@ mutual
   reifyR : ∀{Γ} σ {t : Tm Γ σ}{v : Val Γ σ} → σ ∋ t R v → t ∼ embNf (reify σ v)
   reifyR ι r = r
   reifyR (σ ⇒ τ){t = t}{v = v} r =  trans∼ eta∼ (conglam∼ (reifyR τ (r vsu (var vze) (reflect σ (nvar vze)) (reflectR σ refl∼))))
-  reifyR nat {v = ne x} r = r
+  reifyR nat {v = nenat x} r = r
   reifyR nat {v = nze} r = r
   reifyR nat {v = nsu v} (n , t∼ , nRv) = trans∼ t∼ (congsu∼ (reifyR nat {t = n}{v = v} nRv)) 
   reifyR (σ ∧ τ) {t = t}{v = v} r = trans∼ (paireta∼ {t = t}) (congpair∼ (reifyR σ (proj₁ r)) (reifyR τ (proj₂ r)))
@@ -304,7 +309,7 @@ mutual
 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
          σ ∋ z R zv → (σ ⇒ σ) ∋ f R fv → nat ∋ n R nv → σ ∋ (rec z f n) R natfold {σ = σ} zv fv nv
-natfoldR {σ = σ}{f = f}{fv = fv} {ne x} zR fR nR              = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
+natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR              = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
 natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nze} zR fR nR   = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congrecze∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
 natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv}{nsu nv} zR fR (n' , n∼ , nRnv) = R∼ {Γ}{σ} (fR renId (rec z f n') (natfold {σ = σ} zv fv nv) 
          (natfoldR {nv = nv} zR fR nRnv)) 
@@ -356,3 +361,35 @@ completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var i
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+
+
+mutual
+  stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
+  stability {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
+    n 
+    ≅⟨ stability n ⟩
+    reify τ (eval idE (embNf n))
+    ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
+    reify τ (eval ((λ {σ'} → renval {σ = σ'} vsu ∘ idE) << reflect σ (nvar vze)) (embNf n))
+    ∎)
+  stability (ne n) = sym (stability' n)
+  stability (nenat n) = sym (stability' n)
+  stability (a ,-, b) = cong₂ _,-,_ (stability a) (stability b)
+  stability nze = refl
+  stability (nsu n) = cong nsu (stability n)
+  stability (ntup f) = cong ntup (ext (λ n → trans (stability (f n)) (cong (reify _) (sym (lookuptab (λ n' → eval idE (embNf (f n'))) n)))))
+
+  stability' : ∀{Γ σ} (n : Ne Γ σ) → eval idE (embNe n) ≅ (reflect _ n)
+  stability' (nvar x) = refl
+  stability' (napp n u) = trans
+                            (fcong (fcong (ifcong (cong proj₁ (stability' n)) _) id)
+                             (eval idE (embNf u)))
+                            (cong (reflect _) (cong₂ napp (renneid n) (sym (stability u))))
+  stability' (nfst n) = cong proj₁ (stability' n)
+  stability' (nsnd n) = cong proj₂ (stability' n)
+  stability' {σ = σ} (nrec z f n) = proof
+    natfold (eval idE (embNf z)) (eval idE (embNf f)) (eval idE (embNe n))
+    ≅⟨ {!!} ⟩
+    reflect σ (nrec z f n)
+    ∎
+  stability' (nproj n s) = {!!}

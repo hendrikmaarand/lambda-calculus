@@ -151,7 +151,7 @@ mutual
     (iext λ σ → ext λ (α : Ren _ _) → ext λ v → 
       proof 
       eval ((renval (α ∘ ρ) ∘ γ) << v) t
-      ≅⟨ cong (λ (x : ∀{σ} → Val _ σ → Val _ σ) → eval ((x ∘ γ) << v) t ) (iext λ _ → ext λ v → sym (renvalcomp ρ α v)) ⟩ 
+      ≅⟨ cong (λ (x : ∀{σ} → Val _ σ → Val _ σ) → eval ((x ∘ γ) << v) t) (iext λ _ → ext λ v → sym (renvalcomp ρ α v)) ⟩ 
       eval ((renval α ∘ renval ρ ∘ γ) << v) t
       ∎)
     refl 

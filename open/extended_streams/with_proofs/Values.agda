@@ -71,13 +71,13 @@ mutual
   shead (renval {Γ} {Δ} {< σ >} α v) = renval {σ = σ} α (shead v)
   stail (renval {Γ} {Δ} {< σ >} α v) = renval {σ = < σ >} α (stail v)
 
-renvalIso1 : ∀{Γ Δ σ} → (α : Ren Γ Δ)(s : Stream (Val Γ σ))(n : ℕ) → renval {σ = σ} α (lookup s n) ≅ lookup (renval {σ = < σ >} α s) n
-renvalIso1 α s zero = refl
-renvalIso1 {σ = σ} α s (suc n) = renvalIso1 {σ = σ} α (stail s) n
+renvallookup : ∀{Γ Δ σ} → (α : Ren Γ Δ)(s : Stream (Val Γ σ))(n : ℕ) → renval {σ = σ} α (lookup s n) ≅ lookup (renval {σ = < σ >} α s) n
+renvallookup α s zero = refl
+renvallookup {σ = σ} α s (suc n) = renvallookup {σ = σ} α (stail s) n
 
-renvalIso2 : ∀{Γ Δ σ} → (f : ℕ → Val Γ σ) → (α : Ren Γ Δ) → renval {σ = < σ >} α (tabulate f) S∼ tabulate (λ n → renval {σ = σ} α (f n))
-hd∼ (renvalIso2 f α) = refl
-tl∼ (renvalIso2 f α) = renvalIso2 (λ n → f (suc n)) α
+renvaltab : ∀{Γ Δ σ} → (f : ℕ → Val Γ σ) → (α : Ren Γ Δ) → renval {σ = < σ >} α (tabulate f) S∼ tabulate (λ n → renval {σ = σ} α (f n))
+hd∼ (renvaltab f α) = refl
+tl∼ (renvaltab f α) = renvaltab (λ n → f (suc n)) α
 
 
 mutual
@@ -118,3 +118,8 @@ renval<< : ∀{Γ Δ E σ} → (ρ : Ren Δ E) → (γ : Env Γ Δ) → (v : Val
          (renval {σ = τ} ρ ∘ (γ << v)) x ≅ ((λ {σ'} → renval {σ = σ'} ρ ∘ γ) << renval {σ = σ} ρ v) x
 renval<< ρ γ v vze = refl
 renval<< ρ γ v (vsu x) = refl
+
+renenv : ∀{Γ Δ E} → Ren Δ E → Env Γ Δ → Env Γ E
+renenv {ε} α γ ()
+renenv {Γ < σ} α γ vze = renval {σ = σ} α (γ vze)
+renenv {Γ < σ} α γ (vsu x) = renenv α (γ ∘ vsu) x 

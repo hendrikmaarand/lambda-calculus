@@ -83,14 +83,14 @@ mutual
     ∎
   evallem {σ = σ} γ ρ (proj n s) = proof
     renval {σ = σ} ρ (lookup (eval γ s) n)
-    ≅⟨ renvalIso1 ρ (eval γ s) n ⟩ 
+    ≅⟨ renvallookup ρ (eval γ s) n ⟩ 
     lookup (renval {σ = < σ >} ρ (eval γ s)) n
     ≅⟨ cong (λ f → lookup f n) (evallem γ ρ s) ⟩  
     lookup (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
     ∎
   evallem {σ = < σ >} γ ρ (tup f) = proof
     renval {σ = < σ >} ρ (tabulate (λ n → eval γ (f n))) 
-    ≅⟨ SEq (renvalIso2 (λ n → eval γ (f n)) ρ) ⟩
+    ≅⟨ SEq (renvaltab (λ n → eval γ (f n)) ρ) ⟩
     tabulate (λ n → renval {σ = σ} ρ (eval γ (f n)))
     ≅⟨ cong tabulate (ext (λ n → evallem γ ρ (f n))) ⟩
     tabulate (λ n → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (f n))

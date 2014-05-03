@@ -11,7 +11,8 @@ open ≅-Reasoning renaming (begin_ to proof_)
 mutual 
   data Nf (Γ : Con) : Ty → Set where
     nlam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
-    ne    : ∀{σ} → Ne Γ σ → Nf Γ σ
+    ne    : Ne Γ ι → Nf Γ ι
+    nenat : Ne Γ nat → Nf Γ nat
     _,-,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     nze   : Nf Γ nat
     nsu   : Nf Γ nat → Nf Γ nat
@@ -24,18 +25,13 @@ mutual
     nsnd  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     nproj : ∀{σ} → ℕ → Ne Γ < σ > → Ne Γ σ
-    --ntail : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
 
-nhead : ∀{Γ σ} → Ne Γ < σ > → Ne Γ σ
-nhead n = nproj zero n
-
---ntail : ∀{Γ σ} → Ne Γ < σ > → Ne Γ < σ >
---ntail n = {!!}
 
 mutual
   embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
   embNf (nlam n) = lam (embNf n)
   embNf (ne x) = embNe x
+  embNf (nenat x) = embNe x
   embNf (a ,-, b) = embNf a ,, embNf b
   embNf nze = ze
   embNf (nsu n) = su (embNf n)
@@ -54,6 +50,7 @@ mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Nf Δ σ → Nf Γ σ
   renNf α (nlam n) = nlam (renNf (wk α) n)
   renNf α (ne n) = ne (renNe α n)
+  renNf α (nenat n) = nenat (renNe α n)
   renNf α (a ,-, b) = renNf α a ,-, renNf α b
   renNf α nze = nze
   renNf α (nsu n) = nsu (renNf α n)
@@ -66,7 +63,6 @@ mutual
   renNe α (nsnd n) = nsnd (renNe α n)
   renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
   renNe α (nproj n s) = nproj n (renNe α s)
-  --renNe α (ntail s) = ntail (renNe α s)
 
 
 
@@ -78,7 +74,6 @@ mutual
   rennecomp ρ' ρ (nfst n) = cong nfst (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nproj n s) = cong (nproj n) (rennecomp ρ' ρ s)
-  --rennecomp ρ' ρ (ntail s) = cong ntail (rennecomp ρ' ρ s)
 
   rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
   rennfcomp ρ' ρ (nlam v) = proof
@@ -89,6 +84,7 @@ mutual
     nlam (renNf (wk (ρ' ∘ ρ)) v)
     ∎
   rennfcomp ρ' ρ (ne x) = cong ne (rennecomp ρ' ρ x)
+  rennfcomp ρ' ρ (nenat x) = cong nenat (rennecomp ρ' ρ x)
   rennfcomp ρ' ρ nze = refl
   rennfcomp ρ' ρ (nsu v) = cong nsu (rennfcomp ρ' ρ v)
   rennfcomp ρ' ρ (a ,-, b) = cong₂ _,-,_ (rennfcomp ρ' ρ a) (rennfcomp ρ' ρ b)
@@ -105,6 +101,7 @@ mutual
     nlam n
     ∎
   rennfid (ne x) = cong ne (renneid x)
+  rennfid (nenat x) = cong nenat (renneid x)
   rennfid nze = refl
   rennfid (nsu n) = cong nsu (rennfid n)
   rennfid (a ,-, b) = cong₂ _,-,_ (rennfid a) (rennfid b)
@@ -117,5 +114,4 @@ mutual
   renneid (nfst n) = cong nfst (renneid n)
   renneid (nsnd n) = cong nsnd (renneid n)
   renneid (nproj n s) = cong (nproj n) (renneid s)
-  --renneid (ntail s) = cong ntail (renneid s)
 

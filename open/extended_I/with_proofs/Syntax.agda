@@ -1,7 +1,7 @@
 module Syntax where
 
 open import Function
-open import Data.Nat hiding (_<_)
+open import Data.Nat hiding (_<_; fold)
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
 
@@ -19,19 +19,19 @@ data Con : Set where
   _<_ : Con → Ty → Con
 
 data Var : Con → Ty → Set where
-  zero : ∀{Γ σ} → Var (Γ < σ) σ
-  suc  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
+  vze : ∀{Γ σ} → Var (Γ < σ) σ
+  vsu  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
 
 data Tm (Γ : Con) : Ty → Set where 
   var   : ∀{σ} → Var Γ σ → Tm Γ σ
   lam   : ∀{σ τ} → Tm (Γ < σ) τ → Tm Γ (σ ⇒ τ)
   app   : ∀{σ τ} → Tm Γ (σ ⇒ τ) → Tm Γ σ → Tm Γ τ
   ze    : Tm Γ nat
-  sc    : Tm Γ nat → Tm Γ nat
+  su    : Tm Γ nat → Tm Γ nat
   rec   : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ
   nil   : ∀{σ} → Tm Γ [ σ ]
   cons  : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
-  tfold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ τ
+  fold : ∀{σ τ} →  Tm Γ τ → Tm Γ (σ ⇒ τ ⇒ τ) → Tm Γ [ σ ] → Tm Γ τ
 
 mutual
   data Nf (Γ : Con) : Ty → Set where
@@ -39,8 +39,8 @@ mutual
     ne    : Ne Γ ι → Nf Γ ι
     nenat : Ne Γ nat → Nf Γ nat
     ne[]  : ∀{σ} → Ne Γ [ σ ] → Nf Γ [ σ ] 
-    nzero : Nf Γ nat
-    nsuc  : Nf Γ nat → Nf Γ nat
+    nze   : Nf Γ nat
+    nsu   : Nf Γ nat → Nf Γ nat
     nnil  : ∀{σ} → Nf Γ [ σ ]
     ncons : ∀{σ} → Nf Γ σ → Nf Γ [ σ ] → Nf Γ [ σ ]
 
@@ -66,8 +66,8 @@ Ren Δ Γ = ∀{σ} → Var Δ σ → Var Γ σ
 -- used and then incremented by 1.
 
 wk : ∀{Γ Δ σ} → Ren Δ Γ → Ren (Δ < σ) (Γ < σ)
-wk ρ zero = zero
-wk ρ (suc y) = suc (ρ y)
+wk ρ vze = vze
+wk ρ (vsu y) = vsu (ρ y)
 
 -- apply a renaming to a term, wk is needed to push the renaming inside 
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
@@ -78,11 +78,11 @@ ren ρ (var x) = var (ρ x)
 ren ρ (lam t) = lam (ren (wk ρ) t)
 ren ρ (app t u) = app (ren ρ t) (ren ρ u)
 ren ρ ze = ze
-ren ρ (sc t) = sc (ren ρ t)
+ren ρ (su t) = su (ren ρ t)
 ren ρ (rec z f n) = rec (ren ρ z) (ren ρ f) (ren ρ n)
 ren ρ nil = nil
 ren ρ (cons h t) = cons (ren ρ h) (ren ρ t)
-ren ρ (tfold a f l) = tfold (ren ρ a) (ren ρ f) (ren ρ l) 
+ren ρ (fold z f l) = fold (ren ρ z) (ren ρ f) (ren ρ l) 
 
 
 -- the identity renaming (maps variables to themselves)
@@ -108,8 +108,8 @@ mutual
   renNf ρ (ne n) = ne (renNe ρ n)
   renNf ρ (nenat n) = nenat (renNe ρ n)
   renNf ρ (ne[] n) = ne[] (renNe ρ n)
-  renNf ρ nzero = nzero
-  renNf ρ (nsuc n) = nsuc (renNf ρ n)
+  renNf ρ nze = nze
+  renNf ρ (nsu n) = nsu (renNf ρ n)
   renNf ρ nnil = nnil
   renNf ρ (ncons h t) = ncons (renNf ρ h) (renNf ρ t)
   
@@ -127,8 +127,8 @@ mutual
   embNf (ne x) = embNe x
   embNf (nenat x) = embNe x
   embNf (ne[] x) = embNe x
-  embNf nzero = ze
-  embNf (nsuc n) = sc (embNf n)
+  embNf nze = ze
+  embNf (nsu n) = su (embNf n)
   embNf nnil = nil
   embNf (ncons h t) = cons (embNf h) (embNf t)
 
@@ -136,7 +136,7 @@ mutual
   embNe (nvar x) = var x
   embNe (napp t u) = app (embNe t) (embNf u)
   embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
-  embNe (nfold x f n) = tfold (embNf x) (embNf f) (embNe n)
+  embNe (nfold x f n) = fold (embNf x) (embNf f) (embNe n)
 
 
 postulate ext : {A : Set}{B B' : A → Set}{f : ∀ a → B a}{g : ∀ a → B' a} →
@@ -149,8 +149,8 @@ postulate iext : {A : Set}{B B' : A → Set}{f : ∀{a} → B a}{g : ∀{a} → 
 
 -- if you weaken the identity renaming then it should still be the same thing
 wkid : ∀{Γ σ τ}(x : Var (Γ < τ) σ) → wk renId x ≅ renId x
-wkid zero = refl
-wkid (suc y) = refl
+wkid vze = refl
+wkid (vsu y) = refl
 
 
 -- if you rename a terms using the id renaming, then the term shouldn't change
@@ -165,19 +165,19 @@ renid (lam y) = proof
   ∎ 
 renid (app t u) = cong₂ app (renid t) (renid u) 
 renid ze = refl
-renid (sc t) = cong sc (renid t)
+renid (su t) = cong su (renid t)
 renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
 renid nil = refl
 renid (cons h t) = cong₂ cons (renid h) (renid t)
-renid (tfold a f l) = cong₃ tfold (renid a) (renid f) (renid l)
+renid (fold a f l) = cong₃ fold (renid a) (renid f) (renid l)
 
 
 -- composing two renamings and then weakening them together should be
 -- the same as weakening them individually and then composing them
 wkcomp : ∀ {B Γ Δ}(f : Ren Γ Δ)(g : Ren B Γ){σ τ}(x : Var (B < σ) τ) → 
             wk (renComp f g) x ≅ renComp (wk f) (wk g) x  
-wkcomp f g zero = refl
-wkcomp f g (suc y) = refl
+wkcomp f g vze = refl
+wkcomp f g (vsu y) = refl
 
 -- composing renamings and then applying them, should be the same as
 -- applying them individually
@@ -193,11 +193,11 @@ rencomp f g (lam t) = proof
   ∎
 rencomp f g (app t u) = cong₂ app (rencomp f g t ) (rencomp f g u)
 rencomp f g ze = refl
-rencomp f g (sc t) = cong sc (rencomp f g t)
+rencomp f g (su t) = cong su (rencomp f g t)
 rencomp f g (rec z h n) = cong₃ rec (rencomp f g z) (rencomp f g h) (rencomp f g n)
 rencomp f g nil = refl
 rencomp f g (cons h t) = cong₂ cons (rencomp f g h) (rencomp f g t)
-rencomp f g (tfold a fn l) = cong₃ tfold (rencomp f g a) (rencomp f g fn) (rencomp f g l)
+rencomp f g (fold a fn l) = cong₃ fold (rencomp f g a) (rencomp f g fn) (rencomp f g l)
 
 
 mutual
@@ -218,8 +218,8 @@ mutual
   rennfcomp ρ' ρ (ne x) = cong ne (rennecomp ρ' ρ x)
   rennfcomp ρ' ρ (nenat n) = cong nenat (rennecomp ρ' ρ n)
   rennfcomp ρ' ρ (ne[] l) = cong ne[] (rennecomp ρ' ρ l)
-  rennfcomp ρ' ρ nzero = refl
-  rennfcomp ρ' ρ (nsuc v) = cong nsuc (rennfcomp ρ' ρ v)
+  rennfcomp ρ' ρ nze = refl
+  rennfcomp ρ' ρ (nsu v) = cong nsu (rennfcomp ρ' ρ v)
   rennfcomp ρ' ρ nnil = refl
   rennfcomp ρ' ρ (ncons h t) = cong₂ ncons (rennfcomp ρ' ρ h) (rennfcomp ρ' ρ t)
 
@@ -237,8 +237,8 @@ mutual
   renNfId (ne x) = cong ne (renNeId x)
   renNfId (nenat n) = cong nenat (renNeId n)
   renNfId (ne[] {_} l) = cong ne[] (renNeId l)
-  renNfId nzero = refl
-  renNfId (nsuc n) = cong nsuc (renNfId n)   
+  renNfId nze = refl
+  renNfId (nsu n) = cong nsu (renNfId n)   
   renNfId nnil = refl
   renNfId (ncons n n₁) = cong₂ ncons (renNfId n) (renNfId n₁)
   
@@ -254,24 +254,24 @@ Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ
 
 lift : ∀{Γ Δ σ} → Sub Γ Δ → Sub (Γ < σ) (Δ < σ)
-lift f zero    = var zero
-lift f (suc x) = ren suc (f x)
+lift f vze    = var vze
+lift f (vsu x) = ren vsu (f x)
 
 sub : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Γ σ → Tm Δ σ
 sub f (var x) = f x
 sub f (lam t) = lam (sub (lift f) t)
 sub f (app t u) = app (sub f t) (sub f u)
 sub f ze = ze
-sub f (sc n) = sc (sub f n)
+sub f (su n) = su (sub f n)
 sub f (rec z g n) = rec (sub f z) (sub f g) (sub f n)
 sub f nil = nil
-sub f (cons t t₁) = cons (sub f t) (sub f t₁)
-sub f (tfold a fn l) = tfold (sub f a) (sub f fn) (sub f l)
+sub f (cons t u) = cons (sub f t) (sub f u)
+sub f (fold a fn l) = fold (sub f a) (sub f fn) (sub f l)
 
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
-sub<< f t zero = t
-sub<< f t (suc x) = f x
+sub<< f t vze = t
+sub<< f t (vsu x) = f x
 
 subId : ∀{Γ} → Sub Γ Γ
 subId = var
@@ -280,8 +280,8 @@ subComp : ∀{B Γ Δ} → Sub Γ Δ → Sub B Γ → Sub B Δ
 subComp f g = sub f ∘ g
 
 liftid : ∀{Γ σ τ}(x : Var (Γ < σ) τ) → lift subId x ≅ subId x
-liftid zero = refl
-liftid (suc y) = refl
+liftid vze = refl
+liftid (vsu y) = refl
 
 
 subid : ∀{Γ σ}(t : Tm Γ σ) → sub subId t ≅ t
@@ -295,18 +295,18 @@ subid (lam t) = proof
   ∎
 subid (app t u) = cong₂ app (subid t) (subid u)
 subid ze = refl
-subid (sc n) = cong sc (subid n)
+subid (su n) = cong su (subid n)
 subid (rec z f n) = cong₃ rec (subid z) (subid f) (subid n)
 subid nil = refl
 subid (cons t t₁) = cong₂ cons (subid t) (subid t₁)
-subid (tfold a f l) = cong₃ tfold (subid a) (subid f) (subid l)
+subid (fold a f l) = cong₃ fold (subid a) (subid f) (subid l)
 
 
 -- time for the mysterious four lemmas:
 liftwk : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Ren B Γ){σ τ}(x : Var (B < σ) τ) →
             (lift f ∘ wk g) x ≅ lift (f ∘ g) x
-liftwk f g zero = refl
-liftwk f g (suc y) = refl
+liftwk f g vze = refl
+liftwk f g (vsu y) = refl
 
 
 subren : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Ren B Γ){σ}(t : Tm B σ) → 
@@ -321,17 +321,17 @@ subren f g (lam t) = proof
   ∎
 subren f g (app t u) = cong₂ app (subren f g t) (subren f g u)
 subren f g ze = refl
-subren f g (sc n) = cong sc (subren f g n)
+subren f g (su n) = cong su (subren f g n)
 subren f g (rec z h n) = cong₃ rec (subren f g z) (subren f g h) (subren f g n)
 subren f g nil = refl
 subren f g (cons t t₁) = cong₂ cons (subren f g t) (subren f g t₁)
-subren f g (tfold a fn l) = cong₃ tfold (subren f g a) (subren f g fn) (subren f g l)
+subren f g (fold a fn l) = cong₃ fold (subren f g a) (subren f g fn) (subren f g l)
 
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
                (ren (wk f) ∘ lift g) x ≅ lift (ren f ∘ g) x
-renwklift f g zero    = refl
-renwklift f g (suc x) = trans (sym (rencomp (wk f) suc (g x))) (rencomp suc f (g x)) 
+renwklift f g vze    = refl
+renwklift f g (vsu x) = trans (sym (rencomp (wk f) vsu (g x))) (rencomp vsu f (g x)) 
 
 rensub : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ}(t : Tm B σ) →
          (ren f ∘  sub g) t ≅ sub (ren f ∘ g) t
@@ -345,23 +345,23 @@ rensub f g (lam t) = proof
   ∎
 rensub f g (app t u) = cong₂ app (rensub f g t) (rensub f g u) 
 rensub f g ze = refl
-rensub f g (sc n) = cong sc (rensub f g n)
+rensub f g (su n) = cong su (rensub f g n)
 rensub f g (rec z h n) = cong₃ rec (rensub f g z) (rensub f g h) (rensub f g n)
 rensub f g nil = refl
 rensub f g (cons t t₁) = cong₂ cons (rensub f g t) (rensub f g t₁)
-rensub f g (tfold a fn l) = cong₃ tfold (rensub f g a) (rensub f g fn) (rensub f g l)
+rensub f g (fold a fn l) = cong₃ fold (rensub f g a) (rensub f g fn) (rensub f g l)
 
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
            lift (subComp f g) x ≅ subComp (lift f) (lift g) x
-liftcomp f g zero    = refl
-liftcomp f g (suc x) = 
+liftcomp f g vze    = refl
+liftcomp f g (vsu x) = 
   proof 
-  lift (subComp f g) (suc x) 
-  ≅⟨ rensub suc f (g x) ⟩
-  sub (ren suc ∘ f) (g x)
-  ≅⟨ sym (subren (lift f) suc (g x)) ⟩
-  subComp (lift f) (lift g) (suc x) 
+  lift (subComp f g) (vsu x) 
+  ≅⟨ rensub vsu f (g x) ⟩
+  sub (ren vsu ∘ f) (g x)
+  ≅⟨ sym (subren (lift f) vsu (g x)) ⟩
+  subComp (lift f) (lift g) (vsu x) 
   ∎
 
 subcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ}(t : Tm B σ) → 
@@ -376,9 +376,9 @@ subcomp f g (lam t) = proof
   ∎
 subcomp f g (app t u) = cong₂ app (subcomp  f g t) (subcomp f g u)
 subcomp f g ze = refl
-subcomp f g (sc n) = cong sc (subcomp f g n)
+subcomp f g (su n) = cong su (subcomp f g n)
 subcomp f g (rec z h n) = cong₃ rec (subcomp f g z) (subcomp f g h) (subcomp f g n)
 subcomp f g nil = refl
 subcomp f g (cons t t₁) = cong₂ cons (subcomp f g t) (subcomp f g t₁)
-subcomp f g (tfold a fn l) = cong₃ tfold (subcomp f g a) (subcomp f g fn) (subcomp f g l)
+subcomp f g (fold a fn l) = cong₃ fold (subcomp f g a) (subcomp f g fn) (subcomp f g l)
 

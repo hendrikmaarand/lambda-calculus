@@ -2,9 +2,8 @@ module Evaluator where
 
 open import Syntax
 open import ReifyReflect
-open import Data.Nat hiding (_<_)
+
 open import Data.Product
-open import Data.List hiding ([_])
 open import Data.Sum hiding (map)
 open import Function
 open import Relation.Binary.HeterogeneousEquality
@@ -25,15 +24,13 @@ mutual
       eval ((λ {σ} → renval {σ = σ} (ρ' ∘ ρ) ∘ γ) << renval {σ = σ} ρ' v) t
       ∎)
   eval γ (app t u) = proj₁ (eval γ t) renId (eval γ u)     
-  eval γ ze = nzero
-  eval γ (sc t) = nsuc (eval γ t)
+  eval γ ze = nze
+  eval γ (su t) = nsu (eval γ t)
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
   eval γ nil = nilLV
   eval γ (cons h t) = consLV (eval γ h) (eval γ t)
-  eval γ (tfold {σ}{τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z) (eval γ f) (eval γ n)
- 
-
-  
+  eval γ (fold {σ}{τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z) (eval γ f) (eval γ n)
+   
   evallem : ∀{Γ Δ Δ₁ σ} → (γ : Env Γ Δ)(α : Ren Δ Δ₁)(t : Tm Γ σ) → renval {σ = σ} α (eval γ t) ≅ eval (λ {σ'} → renval {σ = σ'} α ∘ γ) t
   evallem {σ = σ} γ ρ (var x) = proof renval {σ = σ} ρ (γ x) ≡⟨⟩ renval {σ = σ} ρ (γ x) ∎
   evallem {σ = σ ⇒ τ} γ ρ (lam t) = Σeq 
@@ -65,11 +62,11 @@ mutual
     ≅⟨ cong (λ f → f (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) u)) (fcong (ifcong (cong proj₁ (evallem γ ρ t)) Δ₁) id) ⟩ 
     proj₁ (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) t) id (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) u)
     ∎
-  evallem γ ρ ze = proof nzero ≡⟨⟩ nzero ∎
-  evallem γ ρ (sc n) = proof
-    nsuc (renNf ρ (eval γ n)) 
-    ≅⟨ cong nsuc (evallem γ ρ n) ⟩
-    nsuc (eval (λ {σ} → renval {σ = σ} ρ ∘ γ) n)
+  evallem γ ρ ze = proof nze ≡⟨⟩ nze ∎
+  evallem γ ρ (su n) = proof
+    nsu (renNf ρ (eval γ n)) 
+    ≅⟨ cong nsu (evallem γ ρ n) ⟩
+    nsu (eval (λ {σ} → renval {σ = σ} ρ ∘ γ) n)
     ∎
   evallem {σ = σ} γ ρ (rec z f n) = proof
     renval {σ = σ} ρ (natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)) 
@@ -80,7 +77,7 @@ mutual
     ∎
   evallem γ α nil = refl
   evallem {σ = [ σ ]} γ α (cons t t₁) = cong₂ consLV (evallem γ α t) (evallem γ α t₁)
-  evallem {σ = τ} γ α (tfold {σ = σ}{τ = ._} z f n) = proof
+  evallem {σ = τ} γ α (fold {σ = σ}{τ = ._} z f n) = proof
     renval {σ = τ} α (listfold {τ = τ} (eval γ z) (eval γ f) (eval γ n)) 
     ≅⟨ renvallistfold α (eval γ z) (eval γ f) (eval γ n) ⟩
     listfold {τ = τ} (renval {σ = τ} α (eval γ z)) (renval {σ = σ ⇒ τ ⇒ τ} α (eval γ f)) (renval {σ = [ σ ]} α (eval γ n))
@@ -91,8 +88,8 @@ mutual
 
 
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
-wk<< α β v zero = proof v ≡⟨⟩ v ∎
-wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
+wk<< α β v vze = proof v ≡⟨⟩ v ∎
+wk<< α β v (vsu y) = proof β (α y) ≡⟨⟩ β (α y) ∎
 
 reneval : ∀{Γ Δ E σ}(α : Ren Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (β ∘ α) t ≅ (eval β ∘ ren α) t
 reneval α β (var x) = proof β (α x) ≡⟨⟩ β (α x) ∎
@@ -127,26 +124,26 @@ reneval {E = E} α β (app t u) = proof
   ≅⟨ cong (λ f → f (eval β (ren α u))) (fcong (ifcong (cong proj₁ (reneval α β t)) E) id) ⟩
   (proj₁ (eval β (ren α t)) renId) (eval β (ren α u))           
   ∎
-reneval α β ze = proof nzero ≡⟨⟩ nzero ∎
-reneval α β (sc n) = proof
-  nsuc (eval (β ∘ α) n) 
-  ≅⟨ cong nsuc (reneval α β n) ⟩
-  nsuc (eval β (ren α n))
+reneval α β ze = proof nze ≡⟨⟩ nze ∎
+reneval α β (su n) = proof
+  nsu (eval (β ∘ α) n) 
+  ≅⟨ cong nsu (reneval α β n) ⟩
+  nsu (eval β (ren α n))
   ∎ 
 reneval {σ = σ} α β (rec z f n) = cong₃ natfold (reneval α β z) (reneval α β f) (reneval α β n)
 reneval α β nil = refl
 reneval α β (cons h t) = cong₂ consLV (reneval α β h) (reneval α β t)
-reneval α β (tfold z f l) = cong₃ listfold (reneval α β z) (reneval α β f) (reneval α β l)
+reneval α β (fold z f l) = cong₃ listfold (reneval α β z) (reneval α β f) (reneval α β l)
 
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
-lifteval α β v zero = proof v ≡⟨⟩ v ∎
-lifteval α β v (suc y) = 
+lifteval α β v vze = proof v ≡⟨⟩ v ∎
+lifteval α β v (vsu y) = 
   proof
   eval β (α y) 
-  ≅⟨ reneval suc (β << v) (α y) ⟩
-  eval (β << v) (ren suc (α y))
+  ≅⟨ reneval vsu (β << v) (α y) ⟩
+  eval (β << v) (ren vsu (α y))
   ∎
 
 subeval : ∀{Γ Δ E σ}(α : Sub Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (eval β ∘ α) t ≅ (eval β ∘ sub α) t
@@ -187,14 +184,14 @@ subeval {E = E} α β (app t u) = proof
   ≅⟨ cong (λ f → f (eval β (sub α u))) (fcong (ifcong (cong proj₁ (subeval α β t)) E) id) ⟩
   (proj₁ (eval β (sub α t)) renId) (eval β (sub α u))
   ∎
-subeval α β ze = proof nzero ≡⟨⟩ nzero ∎
-subeval α β (sc n) = proof 
-  nsuc (eval (eval β ∘ α) n) 
-  ≅⟨ cong nsuc (subeval α β n) ⟩
-  nsuc (eval β (sub α n))
+subeval α β ze = proof nze ≡⟨⟩ nze ∎
+subeval α β (su n) = proof 
+  nsu (eval (eval β ∘ α) n) 
+  ≅⟨ cong nsu (subeval α β n) ⟩
+  nsu (eval β (sub α n))
   ∎
 subeval {σ = σ} α β (rec z f n) = cong₃ natfold (subeval α β z) (subeval α β f) (subeval α β n)
 subeval α β nil = refl
 subeval α β (cons h t) = cong₂ consLV (subeval α β h) (subeval α β t)
-subeval α β (tfold z f n) = cong₃ listfold (subeval α β z) (subeval α β f) (subeval α β n)
+subeval α β (fold z f n) = cong₃ listfold (subeval α β z) (subeval α β f) (subeval α β n)
 

@@ -9,14 +9,14 @@ open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
 
 
-data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
-  refl∼  : ∀{Γ}{σ} → {t : Tm Γ σ} → t ∼ t
-  sym∼   : ∀{Γ}{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
-  trans∼ : ∀{Γ}{σ} → {t u v : Tm Γ σ} → t ∼ u → u ∼ v → t ∼ v
-  beta∼  : ∀{Γ σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
-  eta∼   : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
-  congapp∼ : ∀{Γ σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
-  conglam∼ : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
+data _∼_ {Γ : Con} : ∀{σ : Ty} → Tm Γ σ → Tm Γ σ → Set where
+  refl∼  : ∀{σ} → {t : Tm Γ σ} → t ∼ t
+  sym∼   : ∀{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
+  trans∼ : ∀{σ} → {t u v : Tm Γ σ} → t ∼ u → u ∼ v → t ∼ v
+  beta∼  : ∀{σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
+  eta∼   : ∀{σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
+  congapp∼ : ∀{σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
+  conglam∼ : ∀{σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
 
 
 idE : ∀{Γ} → Env Γ Γ
@@ -179,7 +179,7 @@ E<<-ren α p e (suc x) = R-ren α (e x)
 
 sub<<-lem : ∀{Γ Δ σ τ} → (ρ : Sub Γ Δ)(u : Tm Δ σ)(v : Var (Γ < σ) τ) → sub<< ρ u v ≅ (sub (sub<< var u) ∘ (lift ρ)) v
 sub<<-lem ρ u zero = refl
-sub<<-lem ρ u (suc v) = trans (sym (subid (ρ v)) ) (sym (subren (sub<< var u) suc (ρ v))) 
+sub<<-lem ρ u (suc v) = trans (sym (subid (ρ v))) (sym (subren (sub<< var u) suc (ρ v))) 
 
 
 fund-thm : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t R (eval η t)
@@ -206,18 +206,18 @@ fund-thm (app t u) ρ η e = let
 
 
 mutual
-  lem1 : ∀{Γ} σ {t : Tm Γ σ}{v : Val Γ σ} → σ ∋ t R v → t ∼ embNf (reify σ v)
-  lem1 ι r = r
-  lem1 (σ ⇒ τ){t = t}{v = v} r =  trans∼ eta∼ (conglam∼ (lem1 τ (r suc (var zero) (reflect σ (nvar zero)) (lem2 σ refl∼))))
+  reifyR : ∀{Γ} σ {t : Tm Γ σ}{v : Val Γ σ} → σ ∋ t R v → t ∼ embNf (reify σ v)
+  reifyR ι r = r
+  reifyR (σ ⇒ τ){t = t}{v = v} r =  trans∼ eta∼ (conglam∼ (reifyR τ (r suc (var zero) (reflect σ (nvar zero)) (reflectR σ refl∼))))
 
-  lem2 : ∀{Γ} σ {t : Tm Γ σ}{n : Ne Γ σ} → t ∼ embNe n → σ ∋ t R (reflect σ n)
-  lem2 ι p = p
-  lem2 (σ ⇒ τ) {t = t} p ρ u v p' = lem2 τ (congapp∼ (trans∼ (ren∼ refl p) (ren-embNe ρ _)) (lem1 σ p'))
+  reflectR : ∀{Γ} σ {t : Tm Γ σ}{n : Ne Γ σ} → t ∼ embNe n → σ ∋ t R (reflect σ n)
+  reflectR ι p = p
+  reflectR (σ ⇒ τ) {t = t} p ρ u v p' = reflectR τ (congapp∼ (trans∼ (ren∼ refl p) (ren-embNe ρ _)) (reifyR σ p'))
 
 
 idEE : ∀{Γ} → var E idE {Γ}
 idEE {ε} ()
-idEE {Γ < σ} zero = lem2 σ refl∼
+idEE {Γ < σ} zero = reflectR σ refl∼
 idEE {Γ < σ} (suc x) = R'∼ (R-ren suc (idEE x)) (renvalReflect suc (nvar x))
 
 
@@ -225,7 +225,7 @@ soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
   
 completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness t = trans∼ (≅to∼ (sym (subid t))) (lem1 _ (fund-thm t var idE idEE))
+completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
