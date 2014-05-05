@@ -29,9 +29,11 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   congfoldcons∼ : ∀{Γ σ τ} → (z : Tm Γ τ)(f : Tm Γ (σ ⇒ τ ⇒ τ))(x : Tm Γ σ)(xs : Tm Γ [ σ ]) → fold z f (cons x xs) ∼ app (app f x) (fold z f xs)
 
 idE : ∀{Γ} → Env Γ Γ
-idE {ε} () 
-idE {Γ < σ} vze = reflect σ (nvar vze)
-idE {Γ < σ} (vsu {σ = σ'} x) = renval {σ = σ'} vsu (idE x)
+idE x = reflect _ (nvar x)
+
+idEsuc<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((λ {σ'} → renval {σ = σ'} vsu ∘ idE) << reflect σ (nvar vze)) x
+idEsuc<< vze = refl
+idEsuc<< (vsu x) = sym (renvalReflect vsu (nvar x))
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
@@ -194,6 +196,8 @@ R∼ {σ = [ σ ]} {v = neLV x} r p = trans∼ (sym∼ p) r
 R∼ {σ = [ σ ]} {v = nilLV} r p = trans∼ (sym∼ p) r
 R∼ {σ = [ σ ]} {v = consLV h tl} (fh , ft , t∼ , tsRvs) p = fh , (ft , ((trans∼ (sym∼ p) t∼) , tsRvs))
 
+R'∼ : ∀{Γ σ} → {t : Tm Γ σ} → {v v' : Val Γ σ} → σ ∋ t R v → v ≅ v' → σ ∋ t R v'
+R'∼ r refl = r
 
 mutual
   ren-embNf : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Nf Γ σ) → ren α (embNf n) ∼ embNf (renNf α n)
@@ -268,7 +272,7 @@ mutual
 idEE : ∀{Γ} → var E idE {Γ}
 idEE {ε} ()
 idEE {Γ < σ} vze = reflectR σ refl∼
-idEE {Γ < σ} (vsu {σ = σ'} x) = R-ren {σ = σ'} vsu (idEE x)
+idEE {Γ < σ} (vsu {σ = τ} x) = R'∼ {t = var (vsu x)} (R-ren {σ = τ} vsu (idEE x)) (renvalReflect {σ = τ} vsu (nvar x))
 
 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
@@ -327,4 +331,51 @@ completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var i
 
 third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+
+
+
+mutual
+  stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
+  stability {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
+    n 
+    ≅⟨ stability n ⟩
+    reify τ (eval idE (embNf n))
+    ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
+    reify τ (eval ((λ {σ'} → renval {σ = σ'} vsu ∘ idE) << reflect σ (nvar vze)) (embNf n))
+    ∎)
+  stability (ne n) = sym (stability' n)
+  stability (nenat n) = sym (stability' n)
+  stability {σ = [ σ ]} (ne[] xs) = cong (reify [ σ ]) (sym (stability' xs))
+  stability nze = refl
+  stability (nsu n) = cong nsu (stability n)
+  stability nnil = refl
+  stability (ncons h t) = cong₂ ncons (stability h) (stability t)
+
+  stability' : ∀{Γ σ} (n : Ne Γ σ) → eval idE (embNe n) ≅ (reflect _ n)
+  stability' (nvar x) = refl
+  stability' (napp {σ = σ}{τ = τ} n u) = proof
+    proj₁ (eval idE (embNe n)) renId (eval idE (embNf u)) 
+    ≅⟨ fcong (fcong (ifcong (cong proj₁ (stability' n)) _) renId) (eval idE (embNf u)) ⟩
+    reflect τ (napp (renNe renId n) (reify σ (eval idE (embNf u))))
+    ≅⟨ cong (reflect τ) (cong₂ napp (renNeId n) (sym (stability u))) ⟩
+    reflect τ (napp n u)
+    ∎
+  stability' {σ = σ} (nrec z f n) = proof
+    natfold (eval idE (embNf z)) (eval idE (embNf f)) (eval idE (embNe n))
+    ≅⟨ cong₃ natfold refl refl (stability' n) ⟩
+    natfold {σ = σ} (eval idE (embNf z)) (eval idE (embNf f)) (nenat n)
+    ≡⟨⟩
+    reflect σ (nrec (reify _ (eval idE (embNf z))) (reify _ (eval idE (embNf f))) n)
+    ≅⟨ cong₂ (λ z' f' → reflect σ (nrec z' f' n)) (sym (stability z)) (sym (stability f)) ⟩
+    reflect σ (nrec z f n)
+    ∎
+  stability' (nfold {σ = σ}{τ = τ} z f n) = proof
+    listfold (eval idE (embNf z)) (eval idE (embNf f)) (eval idE (embNe n))
+    ≅⟨ cong₃ listfold refl refl (stability' n) ⟩ 
+    listfold {τ = τ} (eval idE (embNf z)) (eval idE (embNf f)) (neLV n)
+    ≡⟨⟩
+    reflect τ (nfold {σ = σ}{τ = τ} (reify _ (eval idE (embNf z))) (reify _ (eval idE (embNf f))) n)
+    ≅⟨ cong (reflect τ) (cong₃ nfold (sym (stability z)) (sym (stability f)) refl) ⟩
+    reflect τ (nfold z f n)
+    ∎
 

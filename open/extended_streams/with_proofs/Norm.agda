@@ -389,7 +389,17 @@ mutual
   stability' (nsnd n) = cong proj₂ (stability' n)
   stability' {σ = σ} (nrec z f n) = proof
     natfold (eval idE (embNf z)) (eval idE (embNf f)) (eval idE (embNe n))
-    ≅⟨ {!!} ⟩
+    ≅⟨ cong₃ natfold refl refl (stability' n) ⟩
+    natfold {σ = σ} (eval idE (embNf z)) (eval idE (embNf f)) (nenat n)
+    ≡⟨⟩
+    reflect σ (nrec (reify _ (eval idE (embNf z))) (reify _ (eval idE (embNf f))) n)
+    ≅⟨ cong₂ (λ z' f' → reflect σ (nrec z' f' n)) (sym (stability z)) (sym (stability f)) ⟩
     reflect σ (nrec z f n)
     ∎
-  stability' (nproj n s) = {!!}
+  stability' {σ = σ} (nproj n s) = proof
+    lookup (eval idE (embNe s)) n 
+    ≅⟨ cong (λ s' → lookup s' n) (stability' s) ⟩ 
+    lookup (tabulate (λ a → reflect σ (nproj a s))) n 
+    ≅⟨ lookuptab (λ a → reflect σ (nproj a s)) n ⟩
+    reflect σ (nproj n s)
+    ∎
