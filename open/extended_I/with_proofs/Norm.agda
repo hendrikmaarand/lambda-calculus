@@ -19,11 +19,11 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   eta∼   : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren vsu t) (var vze))
   congapp∼ : ∀{Γ σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
   conglam∼ : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
-  congsc∼  : ∀{Γ} → {t t' : Tm Γ nat} → t ∼ t' → su t ∼ su t'
-  congcons∼ : ∀{Γ σ} → {x x' : Tm Γ σ}{xs xs' : Tm Γ [ σ ]} → x ∼ x' → xs ∼ xs' → cons x xs ∼ cons x' xs'
+  congsu∼  : ∀{Γ} → {t t' : Tm Γ nat} → t ∼ t' → su t ∼ su t'
   congrec∼  : ∀{Γ σ} → {z z' : Tm Γ σ}{f f' : Tm Γ (σ ⇒ σ)}{n n' : Tm Γ nat} → z ∼ z' → f ∼ f' → n ∼ n' → rec z f n ∼ rec z' f' n'
-  congreczero∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ)) → rec z f ze ∼ z
-  congrecsc∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ))(n : Tm Γ nat) → rec z f (su n) ∼ app f (rec z f n)
+  congrecze∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ)) → rec z f ze ∼ z
+  congrecsu∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ))(n : Tm Γ nat) → rec z f (su n) ∼ app f (rec z f n)
+  congcons∼ : ∀{Γ σ} → {x x' : Tm Γ σ}{xs xs' : Tm Γ [ σ ]} → x ∼ x' → xs ∼ xs' → cons x xs ∼ cons x' xs'
   congfold∼ : ∀{Γ σ τ} → {z z' : Tm Γ τ}{f f' : Tm Γ (σ ⇒ τ ⇒ τ)}{n n' : Tm Γ [ σ ]} → z ∼ z' → f ∼ f' → n ∼ n' → fold z f n ∼ fold z' f' n'
   congfoldnil∼ : ∀{Γ σ τ} → (z : Tm Γ τ)(f : Tm Γ (σ ⇒ τ ⇒ τ)) → fold z f nil ∼ z
   congfoldcons∼ : ∀{Γ σ τ} → (z : Tm Γ τ)(f : Tm Γ (σ ⇒ τ ⇒ τ))(x : Tm Γ σ)(xs : Tm Γ [ σ ]) → fold z f (cons x xs) ∼ app (app f x) (fold z f xs)
@@ -120,11 +120,11 @@ evalSim {σ = σ ⇒ τ} (conglam∼ {t = t}{t' = t'} p) q = Σeq
   refl 
   (iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → 
       fixedtypesleft (cong (renval {σ = τ} ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {σ'} x → renval {σ = σ'} ρ (f x)) << v) x) q))))
-evalSim (congsc∼ p) q = cong nsu (evalSim p q)
+evalSim (congsu∼ p) q = cong nsu (evalSim p q)
 evalSim (congcons∼ x xs) q = cong₂ consLV (evalSim x q) (evalSim xs q)
 evalSim (congrec∼ z f n) q = cong₃ natfold (evalSim z q) (evalSim f q) (evalSim n q)
-evalSim (congreczero∼ z f) refl = refl
-evalSim {σ = σ}{γ = γ} (congrecsc∼ z f n) refl = refl
+evalSim (congrecze∼ z f) refl = refl
+evalSim {σ = σ}{γ = γ} (congrecsu∼ z f n) refl = refl
 evalSim (congfold∼ z f n) q = cong₃ listfold (evalSim z q) (evalSim f q) (evalSim n q)
 evalSim (congfoldnil∼ z f) refl = refl
 evalSim (congfoldcons∼ z f x xs) refl = refl
@@ -164,11 +164,11 @@ ren∼ {ρ = ρ} refl (eta∼ {t = t}) = trans∼ (eta∼ {t = ren ρ t}) (congl
   ∎)) refl∼))
 ren∼ p (congapp∼ q q₁) = congapp∼ (ren∼ p q) (ren∼ p q₁)
 ren∼ p (conglam∼ q) = conglam∼ (ren∼ (cong wk p) q)
-ren∼ p (congsc∼ n) = congsc∼ (ren∼ p n)
+ren∼ p (congsu∼ n) = congsu∼ (ren∼ p n)
 ren∼ p (congcons∼ x xs) = congcons∼ (ren∼ p x) (ren∼ p xs)
 ren∼ p (congrec∼ z f n) = congrec∼ (ren∼ p z) (ren∼ p f) (ren∼ p n)
-ren∼ {ρ = ρ} p (congreczero∼ z f) = trans∼ (congreczero∼ (ren ρ z) (ren ρ f)) (ren∼ p refl∼)
-ren∼ {ρ = ρ} refl (congrecsc∼ z f n) = congrecsc∼ (ren ρ z) (ren ρ f) (ren ρ n)
+ren∼ {ρ = ρ} p (congrecze∼ z f) = trans∼ (congrecze∼ (ren ρ z) (ren ρ f)) (ren∼ p refl∼)
+ren∼ {ρ = ρ} refl (congrecsu∼ z f n) = congrecsu∼ (ren ρ z) (ren ρ f) (ren ρ n)
 ren∼ p (congfold∼ z f n) = congfold∼ (ren∼ p z) (ren∼ p f) (ren∼ p n)
 ren∼ {ρ = ρ} p (congfoldnil∼ z f) = trans∼ (congfoldnil∼ (ren ρ z) (ren ρ f)) (ren∼ p refl∼)
 ren∼ {ρ = ρ} refl (congfoldcons∼ z f x xs) = (congfoldcons∼ (ren ρ z) (ren ρ f) (ren ρ x) (ren ρ xs))
@@ -206,7 +206,7 @@ mutual
   ren-embNf α (nenat x) = ren-embNe α x
   ren-embNf α (ne[] x) = ren-embNe α x
   ren-embNf α nze = refl∼
-  ren-embNf α (nsu n) = congsc∼ (ren-embNf α n)
+  ren-embNf α (nsu n) = congsu∼ (ren-embNf α n)
   ren-embNf α nnil = refl∼
   ren-embNf α (ncons h t) = congcons∼ (ren-embNf α h) (ren-embNf α t)
 
@@ -256,7 +256,7 @@ mutual
   reifyR ι r = r
   reifyR nat {v = nenat x} r = r
   reifyR nat {v = nze} r = r
-  reifyR nat {v = nsu v} (n , t∼ , nRv) = trans∼ t∼ (congsc∼ (reifyR nat {t = n}{v = v} nRv)) 
+  reifyR nat {v = nsu v} (n , t∼ , nRv) = trans∼ t∼ (congsu∼ (reifyR nat {t = n}{v = v} nRv)) 
   reifyR (σ ⇒ τ) r = trans∼ eta∼ (conglam∼ (reifyR τ (r vsu (var vze) (reflect σ (nvar vze)) (reflectR σ refl∼))))
   reifyR [ σ ] {v = neLV x} r = r
   reifyR [ σ ] {v = nilLV} r = r
@@ -278,10 +278,10 @@ idEE {Γ < σ} (vsu {σ = τ} x) = R'∼ {t = var (vsu x)} (R-ren {σ = τ} vsu 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
          σ ∋ z R zv → (σ ⇒ σ) ∋ f R fv → nat ∋ n R nv → σ ∋ (rec z f n) R natfold {σ = σ} zv fv nv
 natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR              = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
-natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nze} zR fR nR   = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congreczero∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
+natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nze} zR fR nR   = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congrecze∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
 natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv}{nsu nv} zR fR (n' , n∼ , nRnv) = R∼ {Γ}{σ} (fR renId (rec z f n') (natfold {σ = σ} zv fv nv) 
          (natfoldR {nv = nv} zR fR nRnv)) 
-         (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsc∼ z f n'))) (congrec∼ refl∼ refl∼ (sym∼ n∼)))
+         (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsu∼ z f n'))) (congrec∼ refl∼ refl∼ (sym∼ n∼)))
 
 
 listfoldR : ∀{Γ σ τ} → {z : Tm Γ τ}{f : Tm Γ (σ ⇒ τ ⇒ τ)}{xs : Tm Γ [ σ ]}{zv : Val Γ τ}{fv : Val Γ (σ ⇒ τ ⇒ τ)}{xsv : Val Γ [ σ ]} → 

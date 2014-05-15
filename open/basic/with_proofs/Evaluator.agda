@@ -50,8 +50,8 @@ Env Γ Δ = ∀{σ} → Var Γ σ → Val Δ σ
 
 
 _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
-(γ << v) zero = v
-(γ << v) (suc x) = γ x 
+(γ << v) vze = v
+(γ << v) (vsu x) = γ x 
 
 -- notice that I have written it with 3 explicit arguments rather than
 -- two, this is because Env computes to:
@@ -68,8 +68,8 @@ _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
 
 
 renval<< : ∀{Γ Δ E σ} → (ρ : Ren Δ E) → (γ : Env Γ Δ) → (v : Val Δ σ) → ∀{τ}(x : Var (Γ < σ) τ) → (renval ρ ∘ (γ << v)) x ≅ ((renval ρ ∘ γ) << renval ρ v) x
-renval<< ρ γ v zero = refl
-renval<< ρ γ v (suc x) = refl
+renval<< ρ γ v vze = refl
+renval<< ρ γ v (vsu x) = refl
 
 ifcong : {A : Set}{B : A → Set}{f f' : {a : A} → B a} → _≅_ {_}{ {a : A} → B a } f { {a : A} → B a } f' → (a : A) → f {a} ≅ f' {a}
 ifcong refl a = refl
@@ -81,7 +81,7 @@ fcong refl a = refl
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
   reify ι v = v
-  reify (σ ⇒ τ) v = nlam (reify τ (proj₁ v suc (reflect σ (nvar zero))))
+  reify (σ ⇒ τ) v = nlam (reify τ (proj₁ v vsu (reflect σ (nvar vze))))
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι n = ne n
@@ -120,13 +120,13 @@ mutual
   reifyRenval : ∀{Γ Δ σ}(ρ : Ren Γ Δ)(n : Val Γ σ) → renNf ρ (reify σ n) ≅ reify σ (renval ρ n)
   reifyRenval {Γ} {Δ} {ι} ρ n = refl
   reifyRenval {Γ} {Δ} {σ ⇒ τ} ρ n = proof
-    nlam (renNf (wk ρ) (reify τ (proj₁ n suc (reflect σ (nvar zero)))))
-    ≅⟨ cong nlam (reifyRenval (wk ρ) (proj₁ n suc (reflect σ (nvar zero)))) ⟩
-    nlam (reify τ (renval (wk ρ) (proj₁ n suc (reflect σ (nvar zero)))))
-    ≅⟨ cong nlam (cong (reify τ) (proj₂ n suc (wk ρ) (reflect σ (nvar zero)))) ⟩
-    nlam (reify τ (proj₁ n ((wk ρ) ∘ suc) (renval (wk ρ) (reflect σ (nvar zero)))))
-    ≅⟨ cong nlam (cong (reify τ) (cong₂ (proj₁ n) refl (renvalReflect (wk ρ) (nvar zero)))) ⟩
-    nlam (reify τ (proj₁ n (suc ∘ ρ) (reflect σ (nvar zero))))
+    nlam (renNf (wk ρ) (reify τ (proj₁ n vsu (reflect σ (nvar vze)))))
+    ≅⟨ cong nlam (reifyRenval (wk ρ) (proj₁ n vsu (reflect σ (nvar vze)))) ⟩
+    nlam (reify τ (renval (wk ρ) (proj₁ n vsu (reflect σ (nvar vze)))))
+    ≅⟨ cong nlam (cong (reify τ) (proj₂ n vsu (wk ρ) (reflect σ (nvar vze)))) ⟩
+    nlam (reify τ (proj₁ n ((wk ρ) ∘ vsu) (renval (wk ρ) (reflect σ (nvar vze)))))
+    ≅⟨ cong nlam (cong (reify τ) (cong₂ (proj₁ n) refl (renvalReflect (wk ρ) (nvar vze)))) ⟩
+    nlam (reify τ (proj₁ n (vsu ∘ ρ) (reflect σ (nvar vze))))
     ∎
 
 
@@ -180,8 +180,8 @@ mutual
 
  
 wk<< : ∀{Γ Δ E}(α : Ren Γ Δ)(β : Env Δ E){σ}(v : Val E σ) → ∀{ρ}(y : Var(Γ < σ) ρ) → ((β ∘ α) << v) y ≅ ((β << v) ∘ wk α) y
-wk<< α β v zero = proof v ≡⟨⟩ v ∎
-wk<< α β v (suc y) = proof β (α y) ≡⟨⟩ β (α y) ∎
+wk<< α β v vze = proof v ≡⟨⟩ v ∎
+wk<< α β v (vsu y) = proof β (α y) ≡⟨⟩ β (α y) ∎
 
 reneval : ∀{Γ Δ E σ}(α : Ren Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (β ∘ α) t ≅ (eval β ∘ ren α) t
 reneval α β (var x) = proof β (α x) ≡⟨⟩ β (α x) ∎
@@ -219,12 +219,12 @@ reneval {_}{_}{E} α β (app t u) = proof
 
 
 lifteval : ∀{Γ Δ E σ τ}(α : Sub Γ Δ)(β : Env Δ E)(v : Val E σ)(y : Var (Γ < σ) τ) → ((eval β ∘ α) << v) y ≅ (eval (β << v) ∘ lift α) y
-lifteval α β v zero = proof v ≡⟨⟩ v ∎
-lifteval α β v (suc y) = 
+lifteval α β v vze = proof v ≡⟨⟩ v ∎
+lifteval α β v (vsu y) = 
   proof
   eval β (α y) 
-  ≅⟨ reneval suc (β << v) (α y) ⟩
-  eval (β << v) (ren suc (α y))
+  ≅⟨ reneval vsu (β << v) (α y) ⟩
+  eval (β << v) (ren vsu (α y))
   ∎
 
 subeval : ∀{Γ Δ E σ}(α : Sub Γ Δ)(β : Env Δ E)(t : Tm Γ σ) → eval (eval β ∘ α) t ≅ (eval β ∘ sub α) t

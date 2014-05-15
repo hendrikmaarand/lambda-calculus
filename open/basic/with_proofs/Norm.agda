@@ -14,7 +14,7 @@ data _∼_ {Γ : Con} : ∀{σ : Ty} → Tm Γ σ → Tm Γ σ → Set where
   sym∼   : ∀{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
   trans∼ : ∀{σ} → {t u v : Tm Γ σ} → t ∼ u → u ∼ v → t ∼ v
   beta∼  : ∀{σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
-  eta∼   : ∀{σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren suc t) (var zero))
+  eta∼   : ∀{σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren vsu t) (var vze))
   congapp∼ : ∀{σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
   conglam∼ : ∀{σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
 
@@ -23,9 +23,9 @@ idE : ∀{Γ} → Env Γ Γ
 idE x = reflect _ (nvar x)
 
 
-idEsuc<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((renval suc ∘ idE) << reflect σ (nvar zero)) x
-idEsuc<< zero = refl
-idEsuc<< (suc x) = sym (renvalReflect suc (nvar x))
+idEvsu<< : ∀{Γ σ τ} → (x : Var (Γ < σ) τ) → idE x ≅ ((renval vsu ∘ idE) << reflect σ (nvar vze)) x
+idEvsu<< vze = refl
+idEvsu<< (vsu x) = sym (renvalReflect vsu (nvar x))
 
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
@@ -66,8 +66,8 @@ renvalId {Γ} {ι} v = renNfId v
 renvalId {Γ} {σ ⇒ τ} v = Σeq (iext λ E → ext λ a → refl) refl (iext λ Δ₁ → iext λ Δ' → ext λ ρ → ext λ ρ' → ext λ v₁ → fixedtypesright refl)
 
 evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Var (Γ < σ) τ) → (γ << eval γ u) v ≅ (eval γ ∘ (sub<< var u)) v
-evalsub<< γ u zero = refl
-evalsub<< γ u (suc v) = refl
+evalsub<< γ u vze = refl
+evalsub<< γ u (vsu v) = refl
 
 
 evalSim : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼ t' → _≅_ {A = Env _ _} γ {B = Env _ _} γ' → eval γ t ≅ eval γ' t'
@@ -89,8 +89,8 @@ evalSim {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq
   (iext λ Δ → ext λ (ρ : Ren _ _) → ext λ v → lem Δ ρ v) 
   refl 
   ((iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypesleft (cong (renval ρ') (lem Δ ρ v)))) where 
-         lem : ∀ Δ (ρ : Ren _ Δ) v → proj₁ (eval γ t) ρ v ≅ proj₁ (eval ((λ {σ} x → renval ρ (γ' x)) << v) (ren (λ {σ} → suc) t)) (λ {σ} x → x) v
-         lem Δ ρ v = trans (trans (cong (λ (f : Env _ _) → proj₁ (eval f t) ρ v) q) (sym (cong (λ f → proj₁ f id v) (renvaleval γ' ρ t)))) (cong (λ f → proj₁ f id v) (reneval suc ((λ {σ} x → renval ρ (γ' x)) << v) t))
+         lem : ∀ Δ (ρ : Ren _ Δ) v → proj₁ (eval γ t) ρ v ≅ proj₁ (eval ((λ {σ} x → renval ρ (γ' x)) << v) (ren (λ {σ} → vsu) t)) (λ {σ} x → x) v
+         lem Δ ρ v = trans (trans (cong (λ (f : Env _ _) → proj₁ (eval f t) ρ v) q) (sym (cong (λ f → proj₁ f id v) (renvaleval γ' ρ t)))) (cong (λ f → proj₁ f id v) (reneval vsu ((λ {σ} x → renval ρ (γ' x)) << v) t))
 evalSim (congapp∼ p p₁) (q) = cong₂ (λ f g → proj₁ f renId g) (evalSim p q) (evalSim p₁ q)
 evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq 
   (iext λ Δ → ext λ (α : Ren _ _) → ext λ v → evalSim p (iext λ σ₁ → cong (λ (f : Env _ _) → (renval α ∘ f) << v) q)) 
@@ -99,13 +99,16 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
       fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
 
 
+correctnessA : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
+correctnessA p = cong (reify _) (evalSim p refl)
+
 ≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
 ≅to∼ refl = refl∼
 
 
 sub<<ren : ∀{Γ Δ σ τ} → (α : Ren Γ Δ)(u : Tm Γ σ)(y : Var (Γ < σ) τ) → sub<< var (ren α u) (wk α y) ≅ ren α (sub<< var u y)
-sub<<ren α u zero = refl
-sub<<ren α u (suc x) = refl
+sub<<ren α u vze = refl
+sub<<ren α u (vsu x) = refl
 
 ren∼ : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {ρ ρ' : Ren Γ Δ} → _≅_ {A = Ren _ _} ρ {B = Ren _ _} ρ' → t ∼ t' → ren ρ t ∼ ren ρ' t'
 ren∼ refl refl∼ = refl∼
@@ -123,13 +126,13 @@ ren∼ {ρ = ρ} refl (beta∼ {t = t}{u = u}) = trans∼ (beta∼ {t = ren (wk 
   ∎)) 
 ren∼ {ρ = ρ} refl (eta∼ {t = t}) = trans∼ (eta∼ {t = ren ρ t}) (conglam∼ (congapp∼ (≅to∼ (
   proof
-  ren suc (ren ρ t) 
-  ≅⟨ sym (rencomp suc ρ t) ⟩
-  ren (suc ∘ ρ) t 
+  ren vsu (ren ρ t) 
+  ≅⟨ sym (rencomp vsu ρ t) ⟩
+  ren (vsu ∘ ρ) t 
   ≅⟨ refl ⟩
-  ren ((wk ρ) ∘ suc) t 
-  ≅⟨ rencomp (wk ρ) suc t ⟩
-  ren (wk ρ) (ren suc t)
+  ren ((wk ρ) ∘ vsu) t 
+  ≅⟨ rencomp (wk ρ) vsu t ⟩
+  ren (wk ρ) (ren vsu t)
   ∎)) refl∼))
 ren∼ p (congapp∼ q q₁) = congapp∼ (ren∼ p q) (ren∼ p q₁)
 ren∼ p (conglam∼ q) = conglam∼ (ren∼ (cong wk p) q)
@@ -169,17 +172,17 @@ E-ren : ∀{Γ Δ  Δ₁}{ρ : Sub Γ Δ}{η : Env Γ Δ} → (α : Ren Δ Δ₁
 E-ren α e x = R-ren α (e x)
 
 E<< : ∀{Γ Δ σ} → {ρ : Sub Γ Δ}{η : Env Γ Δ}{v : Val Δ σ}{u : Tm Δ σ} → (p : σ ∋ u R v)(e : ρ E η) → (sub<< ρ u) E (η << v)
-E<< p e zero = p
-E<< p e (suc x) = e x
+E<< p e vze = p
+E<< p e (vsu x) = e x
 
 E<<-ren : ∀{Γ Δ Δ₁ σ} → {ρ : Sub Γ Δ}{η : Env Γ Δ}{v : Val Δ₁ σ}{u : Tm Δ₁ σ} → (α : Ren Δ Δ₁)(p : σ ∋ u R v)(e : ρ E η) → (sub<< (ren α ∘ ρ) u) E ((renval α ∘ η) << v)
-E<<-ren α p e zero = p
-E<<-ren α p e (suc x) = R-ren α (e x)
+E<<-ren α p e vze = p
+E<<-ren α p e (vsu x) = R-ren α (e x)
 
 
 sub<<-lem : ∀{Γ Δ σ τ} → (ρ : Sub Γ Δ)(u : Tm Δ σ)(v : Var (Γ < σ) τ) → sub<< ρ u v ≅ (sub (sub<< var u) ∘ (lift ρ)) v
-sub<<-lem ρ u zero = refl
-sub<<-lem ρ u (suc v) = trans (sym (subid (ρ v))) (sym (subren (sub<< var u) suc (ρ v))) 
+sub<<-lem ρ u vze = refl
+sub<<-lem ρ u (vsu v) = trans (sym (subid (ρ v))) (sym (subren (sub<< var u) vsu (ρ v))) 
 
 
 fund-thm : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t R (eval η t)
@@ -208,7 +211,7 @@ fund-thm (app t u) ρ η e = let
 mutual
   reifyR : ∀{Γ} σ {t : Tm Γ σ}{v : Val Γ σ} → σ ∋ t R v → t ∼ embNf (reify σ v)
   reifyR ι r = r
-  reifyR (σ ⇒ τ){t = t}{v = v} r =  trans∼ eta∼ (conglam∼ (reifyR τ (r suc (var zero) (reflect σ (nvar zero)) (reflectR σ refl∼))))
+  reifyR (σ ⇒ τ){t = t}{v = v} r =  trans∼ eta∼ (conglam∼ (reifyR τ (r vsu (var vze) (reflect σ (nvar vze)) (reflectR σ refl∼))))
 
   reflectR : ∀{Γ} σ {t : Tm Γ σ}{n : Ne Γ σ} → t ∼ embNe n → σ ∋ t R (reflect σ n)
   reflectR ι p = p
@@ -217,39 +220,32 @@ mutual
 
 idEE : ∀{Γ} → var E idE {Γ}
 idEE {ε} ()
-idEE {Γ < σ} zero = reflectR σ refl∼
-idEE {Γ < σ} (suc x) = R'∼ (R-ren suc (idEE x)) (renvalReflect suc (nvar x))
+idEE {Γ < σ} vze = reflectR σ refl∼
+idEE {Γ < σ} (vsu x) = R'∼ (R-ren vsu (idEE x)) (renvalReflect vsu (nvar x))
 
 
-soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
-soundness p = cong (reify _) (evalSim p refl)
   
-completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
+completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
+completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
-third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+correctnessB : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
+correctnessB t t' p = trans∼ (completeness-lem t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness-lem t')))
 
 
 mutual
-  stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
-  stability {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
+  stabilityNf : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)
+  stabilityNf {σ = σ ⇒ τ} (nlam n) = cong nlam (proof
     n 
-    ≅⟨ stability n ⟩
+    ≅⟨ stabilityNf n ⟩
     reify τ (eval idE (embNf n))
-    ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEsuc<< x))) ⟩
-    reify τ (eval ((renval suc ∘ idE) << reflect σ (nvar zero)) (embNf n))
+    ≅⟨ cong (λ (f : Env _ _) → reify τ (eval f (embNf n))) (iext (λ σ' → ext (λ x → idEvsu<< x))) ⟩
+    reify τ (eval ((renval vsu ∘ idE) << reflect σ (nvar vze)) (embNf n))
     ∎)
-  stability (ne n) = sym (stability' n)
+  stabilityNf (ne n) = sym (stabilityNe n)
 
-  stability' : ∀{Γ σ} (n : Ne Γ σ) → eval idE (embNe n) ≅ (reflect _ n)
-  stability' (nvar x) = refl
-  stability' (napp n x) = trans
-                            (fcong (fcong (ifcong (cong proj₁ (stability' n)) _) id)
+  stabilityNe : ∀{Γ σ} (n : Ne Γ σ) → eval idE (embNe n) ≅ (reflect _ n)
+  stabilityNe (nvar x) = refl
+  stabilityNe (napp n x) = trans
+                            (fcong (fcong (ifcong (cong proj₁ (stabilityNe n)) _) id)
                              (eval idE (embNf x)))
-                            (cong (reflect _) (cong₂ napp (renNeId n) (sym (stability x))))
-
--- forall {Γ}{σ}(n : Nf Γ σ) -> (nf ⌜ n ⌝ == n)
-
--- forall {Γ}{σ}(n : Ne Nf Γ σ) ->  Σ (Ne Val Γ σ) \n' -> (ev ⌜ n ⌝ⁿ ide == nev n') × (quoteⁿ n' == n)
-
+                            (cong (reflect _) (cong₂ napp (renNeId n) (sym (stabilityNf x))))

@@ -14,8 +14,8 @@ data Con : Set where
   _<_ : Con → Ty → Con
 
 data Var : Con → Ty → Set where
-  zero : ∀{Γ σ} → Var (Γ < σ) σ
-  suc  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
+  vze : ∀{Γ σ} → Var (Γ < σ) σ
+  vsu  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
 
 data Tm (Γ : Con) : Ty → Set where 
   var : ∀{σ} → Var Γ σ → Tm Γ σ
@@ -47,8 +47,8 @@ Ren Δ Γ = ∀{σ} → Var Δ σ → Var Γ σ
 -- used and then incremented by 1.
 
 wk : ∀{Γ Δ σ} → Ren Δ Γ → Ren (Δ < σ) (Γ < σ)
-wk ρ zero = zero
-wk ρ (suc y) = suc (ρ y)
+wk ρ vze = vze
+wk ρ (vsu y) = vsu (ρ y)
 
 -- apply a renaming to a term, wk is needed to push the renaming inside 
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
@@ -96,8 +96,8 @@ postulate iext : {A : Set}{B B' : A → Set}{f : ∀{a} → B a}{g : ∀{a} → 
 
 -- if you weaken the identity renaming then it should still be the same thing
 wkid : ∀{Γ σ τ}(x : Var (Γ < τ) σ) → wk renId x ≅ renId x
-wkid zero = refl
-wkid (suc y) = refl
+wkid vze = refl
+wkid (vsu y) = refl
 
 
 -- if you rename a terms using the id renaming, then the term shouldn't change
@@ -117,8 +117,8 @@ renid (app t u) = cong₂ app (renid t) (renid u)
 -- the same as weakening them individually and then composing them
 wkcomp : ∀ {B Γ Δ}(f : Ren Γ Δ)(g : Ren B Γ){σ τ}(x : Var (B < σ) τ) → 
             wk (renComp f g) x ≅ renComp (wk f) (wk g) x  
-wkcomp f g zero = refl
-wkcomp f g (suc y) = refl
+wkcomp f g vze = refl
+wkcomp f g (vsu y) = refl
 
 -- composing renamings and then applying them, should be the same as
 -- applying them individually
@@ -171,8 +171,8 @@ Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ
 
 lift : ∀{Γ Δ σ} → Sub Γ Δ → Sub (Γ < σ) (Δ < σ)
-lift f zero    = var zero
-lift f (suc x) = ren suc (f x)
+lift f vze    = var vze
+lift f (vsu x) = ren vsu (f x)
 
 sub : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Γ σ → Tm Δ σ
 sub f (var x) = f x
@@ -180,8 +180,8 @@ sub f (lam t) = lam (sub (lift f) t)
 sub f (app t u) = app (sub f t) (sub f u)
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
-sub<< f t zero = t
-sub<< f t (suc x) = f x
+sub<< f t vze = t
+sub<< f t (vsu x) = f x
 
 subId : ∀{Γ} → Sub Γ Γ
 subId = var
@@ -191,13 +191,13 @@ subComp f g = sub f ∘ g
 
 
 sub<<-comp : ∀{Γ Δ B σ}(α : Sub Γ Δ)(β : Sub B Γ)(u : Tm Γ σ){τ}(x : Var (B < σ) τ) → subComp α (sub<< β u) x ≅ sub<< (subComp α β) (sub α u) x
-sub<<-comp α β u zero = refl
-sub<<-comp α β u (suc x) = refl
+sub<<-comp α β u vze = refl
+sub<<-comp α β u (vsu x) = refl
 
 
 liftid : ∀{Γ σ τ}(x : Var (Γ < σ) τ) → lift subId x ≅ subId x
-liftid zero = refl
-liftid (suc y) = refl
+liftid vze = refl
+liftid (vsu y) = refl
 
 
 subid : ∀{Γ σ}(t : Tm Γ σ) → sub subId t ≅ id t
@@ -215,8 +215,8 @@ subid (app t u) = cong₂ app (subid t) (subid u)
 -- time for the mysterious four lemmas:
 liftwk : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Ren B Γ){σ τ}(x : Var (B < σ) τ) →
             (lift f ∘ wk g) x ≅ lift (f ∘ g) x
-liftwk f g zero = refl
-liftwk f g (suc y) = refl
+liftwk f g vze = refl
+liftwk f g (vsu y) = refl
 
 subren : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Ren B Γ){σ}(t : Tm B σ) → 
          (sub f ∘ ren g) t ≅ sub (f ∘ g) t
@@ -233,8 +233,8 @@ subren f g (app t u) = cong₂ app (subren f g t) (subren f g u)
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
                (ren (wk f) ∘ lift g) x ≅ lift (ren f ∘ g) x
-renwklift f g zero    = refl
-renwklift f g (suc x) = trans (sym (rencomp (wk f) suc (g x))) (rencomp suc f (g x)) 
+renwklift f g vze    = refl
+renwklift f g (vsu x) = trans (sym (rencomp (wk f) vsu (g x))) (rencomp vsu f (g x)) 
 
 rensub : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ}(t : Tm B σ) →
          (ren f ∘  sub g) t ≅ sub (ren f ∘ g) t
@@ -251,14 +251,14 @@ rensub f g (app t u) = cong₂ app (rensub f g t) (rensub f g u)
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
            lift (subComp f g) x ≅ subComp (lift f) (lift g) x
-liftcomp f g zero    = refl
-liftcomp f g (suc x) = 
+liftcomp f g vze    = refl
+liftcomp f g (vsu x) = 
   proof 
-  lift (subComp f g) (suc x) 
-  ≅⟨ rensub suc f (g x) ⟩
-  sub (ren suc ∘ f) (g x)
-  ≅⟨ sym (subren (lift f) suc (g x)) ⟩
-  subComp (lift f) (lift g) (suc x) 
+  lift (subComp f g) (vsu x) 
+  ≅⟨ rensub vsu f (g x) ⟩
+  sub (ren vsu ∘ f) (g x)
+  ≅⟨ sym (subren (lift f) vsu (g x)) ⟩
+  subComp (lift f) (lift g) (vsu x) 
   ∎
 
 subcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ}(t : Tm B σ) → 
