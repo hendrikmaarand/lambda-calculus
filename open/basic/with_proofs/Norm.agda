@@ -99,8 +99,8 @@ evalSim (conglam∼ {t = t}{t' = t'} p) q = Σeq
       fixedtypesleft (cong (renval ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {_} x → renval {σ = _} ρ (f x)) << v) x) q))))
 
 
-correctnessA : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
-correctnessA p = cong (reify _) (evalSim p refl)
+soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
+soundness p = cong (reify _) (evalSim p refl)
 
 ≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
 ≅to∼ refl = refl∼
@@ -228,8 +228,11 @@ idEE {Γ < σ} (vsu x) = R'∼ (R-ren vsu (idEE x)) (renvalReflect vsu (nvar x))
 completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
-correctnessB : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-correctnessB t t' p = trans∼ (completeness-lem t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness-lem t')))
+completeness : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
+completeness t t' p = trans∼ (completeness-lem t) 
+                     (trans∼ (≅to∼ (cong embNf p)) 
+                       (sym∼ (completeness-lem t')))  
+--trans∼ (completeness-lem t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness-lem t')))
 
 
 mutual

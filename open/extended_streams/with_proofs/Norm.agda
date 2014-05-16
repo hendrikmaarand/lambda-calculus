@@ -212,7 +212,6 @@ ren∼ p (congproj∼ {n = n} q)= congproj∼ (ren∼ p q)
 ren∼ {ρ = ρ} p (streambeta∼ {n = n}{f = f}) = trans∼ (streambeta∼ {f = ren ρ ∘ f}) (ren∼ p refl∼)
 ren∼ {ρ = ρ}{ρ' = .ρ} refl (streameta∼ {s = s}) = streameta∼ {s = ren ρ s}
 
---(congtup∼ (λ n → subst (λ (X : Ren _ _) → proj n (ren ρ s) ∼ proj n (ren X s)) p refl∼))
 
 _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
 ι ∋ t R v = t ∼ embNf (reify ι v)
@@ -356,11 +355,13 @@ idEE {Γ < σ} (vsu {σ = τ} x) = R'∼ {t = var (vsu x)} (R-ren {σ = τ} vsu 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
 
-completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
+completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
+completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
-third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+completeness : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
+completeness t t' p = trans∼ (completeness-lem t) 
+                     (trans∼ (≅to∼ (cong embNf p)) 
+                       (sym∼ (completeness-lem t')))
 
 
 mutual

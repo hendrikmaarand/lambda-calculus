@@ -326,11 +326,13 @@ fund-thm (fold z f n) ρ η e = listfoldR {xsv = eval η n} (fund-thm z ρ η e)
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalSim p refl)
   
-completeness : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
+completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
+completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
-third : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-third t t' p = trans∼ (completeness t) (trans∼ (subst (λ x → embNf (norm t) ∼ embNf x) p refl∼) (sym∼ (completeness t')))
+completeness : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
+completeness t t' p = trans∼ (completeness-lem t) 
+                     (trans∼ (≅to∼ (cong embNf p)) 
+                       (sym∼ (completeness-lem t')))
 
 
 
