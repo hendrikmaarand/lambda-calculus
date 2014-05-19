@@ -1,5 +1,3 @@
-{-# OPTIONS --copatterns #-}
-
 module Folds where
 
 open import Syntax
@@ -11,7 +9,6 @@ open import Data.Product hiding (map)
 open import Function
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
-open import Size
 
 
 
