@@ -219,7 +219,7 @@ nat ∋ t R nenat x = t ∼ embNe x
 nat ∋ t R nze = t ∼ ze
 nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
-(σ ∧ τ) ∋ t R v = Σ (σ ∋ fst t R proj₁ v) (λ _ → τ ∋ snd t R proj₂ v)
+(σ ∧ τ) ∋ t R v = σ ∋ fst t R proj₁ v × τ ∋ snd t R proj₂ v  
 < σ > ∋ t R v = ∀ n → σ ∋ proj n t R lookup v n 
 
 
