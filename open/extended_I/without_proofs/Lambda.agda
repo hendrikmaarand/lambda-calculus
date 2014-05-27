@@ -24,8 +24,8 @@ data Con : Set where
   _<_ : Con → Ty → Con
 
 data Var : Con → Ty → Set where
-  zero : ∀{Γ σ} → Var (Γ < σ) σ
-  suc  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
+  vze : ∀{Γ σ} → Var (Γ < σ) σ
+  vsu  : ∀{Γ σ τ} → Var Γ σ → Var (Γ < τ) σ 
 
 
 
@@ -37,7 +37,7 @@ data Tm (Γ : Con) : Ty → Set where
   fst  : ∀{σ τ} → Tm Γ (σ ∧ τ) → Tm Γ σ
   snd  : ∀{σ τ} → Tm Γ (σ ∧ τ) → Tm Γ τ
   ze   : Tm Γ nat
-  sc   : Tm Γ nat → Tm Γ nat
+  su   : Tm Γ nat → Tm Γ nat
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
   nil  : ∀{σ} → Tm Γ [ σ ]
   cons : ∀{σ} → Tm Γ σ → Tm Γ [ σ ] → Tm Γ [ σ ]
@@ -46,21 +46,21 @@ data Tm (Γ : Con) : Ty → Set where
 
 mutual 
   data Nf (Γ : Con) : Ty → Set where
-    lam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
+    nlam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
     ne   : ∀{σ} → Ne Γ σ → Nf Γ σ
     _,,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
-    zero : Nf Γ nat
-    suc  : Nf Γ nat → Nf Γ nat
-    nil  : ∀{σ} → Nf Γ [ σ ]
-    cons : ∀{σ} → Nf Γ σ → Nf Γ [ σ ] → Nf Γ [ σ ]
+    nze : Nf Γ nat
+    nsu  : Nf Γ nat → Nf Γ nat
+    nnil  : ∀{σ} → Nf Γ [ σ ]
+    ncons : ∀{σ} → Nf Γ σ → Nf Γ [ σ ] → Nf Γ [ σ ]
    
   data Ne (Γ : Con) : Ty → Set where
-    var : ∀{σ} → Var Γ σ → Ne Γ σ
-    app : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
-    fst : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
-    snd : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
-    rec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
-    fold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ τ ⇒ τ) → Ne Γ [ σ ] → Ne Γ τ
+    nvar : ∀{σ} → Var Γ σ → Ne Γ σ
+    napp : ∀{σ τ} → Ne Γ (σ ⇒ τ) → Nf Γ σ → Ne Γ τ
+    nfst : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
+    nsnd : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
+    nrec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
+    nfold : ∀{σ τ} → Nf Γ τ → Nf Γ (σ ⇒ τ ⇒ τ) → Ne Γ [ σ ] → Ne Γ τ
     
 
 
@@ -80,8 +80,8 @@ Ren Δ Γ = ∀{σ} → Var Δ σ → Var Γ σ
 -- used and then incremented by 1.
 
 wk : ∀{Γ Δ σ} → Ren Δ Γ → Ren (Δ < σ) (Γ < σ)
-wk ρ zero = zero
-wk ρ (suc y) = suc (ρ y)
+wk ρ vze = vze
+wk ρ (vsu y) = vsu (ρ y)
 
 -- apply a renaming to a term, wk is needed to push the renaming inside 
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
@@ -96,7 +96,7 @@ ren α (tm ,, tm₁) = ren α tm ,, ren α tm₁
 ren α (fst tm) = fst (ren α tm)
 ren α (snd tm) = snd (ren α tm)
 ren α ze = ze
-ren α (sc tm) = sc (ren α tm)
+ren α (su tm) = su (ren α tm)
 ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
 ren α nil = nil
 ren α (cons t t₁) = cons (ren α t) (ren α t₁)
@@ -105,21 +105,21 @@ ren α (fold z f n) = fold (ren α z) (ren α f) (ren α n)
 
 mutual
   renNf : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Nf Δ σ → Nf Γ σ
-  renNf α (lam n) = lam (renNf (wk α) n)
+  renNf α (nlam n) = nlam (renNf (wk α) n)
   renNf α (ne n) = ne (renNe α n)
   renNf α (n ,, n₁) = renNf α n ,, renNf α n₁
-  renNf α zero = zero
-  renNf α (suc n) = suc (renNf α n)
-  renNf α nil = nil
-  renNf α (cons t t₁) = cons (renNf α t) (renNf α t₁) 
+  renNf α nze = nze
+  renNf α (nsu n) = nsu (renNf α n)
+  renNf α nnil = nnil
+  renNf α (ncons t t₁) = ncons (renNf α t) (renNf α t₁) 
     
   renNe : ∀{Γ Δ} → Ren Δ Γ →  ∀{σ} → Ne Δ σ → Ne Γ σ
-  renNe α (var x) = var (α x)
-  renNe α (app n n') = app (renNe α n) (renNf α n')
-  renNe α (fst n) = fst (renNe α n)
-  renNe α (snd n) = snd (renNe α n)
-  renNe α (rec z f n) = rec (renNf α z) (renNf α f) (renNe α n)
-  renNe α (fold z f n) = fold (renNf α z) (renNf α f) (renNe α n)  
+  renNe α (nvar x) = nvar (α x)
+  renNe α (napp n n') = napp (renNe α n) (renNf α n')
+  renNe α (nfst n) = nfst (renNe α n)
+  renNe α (nsnd n) = nsnd (renNe α n)
+  renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
+  renNe α (nfold z f n) = nfold (renNf α z) (renNf α f) (renNe α n)  
 
   
 -- the identity renaming (maps variables to themselves)
@@ -136,8 +136,8 @@ Sub : Con → Con → Set
 Sub Γ Δ = ∀{σ} → Var Γ σ → Tm Δ σ
 
 lift : ∀{Γ Δ σ} → Sub Γ Δ → Sub (Γ < σ) (Δ < σ)
-lift f zero     = var zero
-lift f (suc x) = ren suc (f x)
+lift f vze     = var vze
+lift f (vsu x) = ren vsu (f x)
 
 sub : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Γ σ → Tm Δ σ
 sub f (var x) = f x
@@ -147,7 +147,7 @@ sub f (tm ,, tm₁) = sub f tm ,, sub f tm₁
 sub f (fst tm) = fst (sub f tm)
 sub f (snd tm) = snd (sub f tm)
 sub f ze = ze
-sub f (sc tm) = sc (sub f tm)
+sub f (su tm) = su (sub f tm)
 sub f (rec z fn n) = rec (sub f z) (sub f fn) (sub f n)
 sub f nil = nil
 sub f (cons t t₁) = cons (sub f t) (sub f t₁)
@@ -185,8 +185,8 @@ Env Γ Δ = ∀{σ} → Var Γ σ → Val Δ σ
 
 
 _<<_ : ∀{Γ Δ} → Env Γ Δ → ∀{σ} → Val Δ σ → Env (Γ < σ) Δ
-(γ << v) zero = v
-(γ << v) (suc x) = γ x 
+(γ << v) vze = v
+(γ << v) (vsu x) = γ x 
 
 -- notice that I have written it with 3 explicit arguments rather than
 -- two, this is because Env computes to:
@@ -212,35 +212,35 @@ renval {σ = [ σ ]} α xs = mapLV (renval {σ = σ} α) (renNe α) xs
 
 renenv : ∀{Γ Δ E} → Ren Δ E → Env Γ Δ → Env Γ E
 renenv {ε} α γ ()
-renenv {Γ < σ} α γ zero = renval {_} {_} {σ} α (γ zero)
-renenv {Γ < σ} α γ (suc x) = renenv α (γ ∘ suc) x 
+renenv {Γ < σ} α γ vze = renval {_} {_} {σ} α (γ vze)
+renenv {Γ < σ} α γ (vsu x) = renenv α (γ ∘ vsu) x 
 
 
 mutual
   reify : ∀{Γ} σ → Val Γ σ → Nf Γ σ
   reify ι x = x
   reify nat x = x
-  reify (σ ⇒ τ) x = lam (reify τ (x suc (reflect σ (var zero))))
+  reify (σ ⇒ τ) x = nlam (reify τ (x vsu (reflect σ (nvar vze))))
   reify (σ ∧ τ) x = reify σ (proj₁ x) ,, reify τ (proj₂ x)
   reify [ σ ] (ne x) = ne x
-  reify [ σ ] nil = nil
-  reify [ σ ] (cons x xs) = cons (reify σ x) (reify [ σ ] xs)
+  reify [ σ ] nil = nnil
+  reify [ σ ] (cons x xs) = ncons (reify σ x) (reify [ σ ] xs)
   
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι v = ne v
   reflect nat n = ne n
-  reflect (σ ⇒ τ) n = λ α v → reflect τ (app (renNe α n) (reify σ v))
-  reflect (σ ∧ τ) n = reflect σ (fst n) , reflect τ (snd n)
+  reflect (σ ⇒ τ) n = λ α v → reflect τ (napp (renNe α n) (reify σ v))
+  reflect (σ ∧ τ) n = reflect σ (nfst n) , reflect τ (nsnd n)
   reflect [ σ ] xs = ne xs
 
 
 natfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
-natfold {σ = σ} z f (ne x) = reflect σ (rec (reify _ z) (reify (_ ⇒ _) f) x)
-natfold {σ = σ} z f zero = z
-natfold {σ = σ} z f (suc n) = f id (natfold {σ = σ} z f n) 
+natfold {σ = σ} z f (ne x) = reflect σ (nrec (reify _ z) (reify (_ ⇒ _) f) x)
+natfold {σ = σ} z f nze = z
+natfold {σ = σ} z f (nsu n) = f id (natfold {σ = σ} z f n) 
 
 listfold : ∀{Γ σ τ} → Val Γ τ → Val Γ (σ ⇒ τ ⇒ τ) → Val Γ [ σ ] → Val Γ τ
-listfold {σ = σ}{τ = τ} z f (ne x) = reflect τ (fold {σ = σ}{τ = τ} (reify τ z) (reify _ (λ {Δ} → f)) x)
+listfold {σ = σ}{τ = τ} z f (ne x) = reflect τ (nfold {σ = σ}{τ = τ} (reify τ z) (reify _ (λ {Δ} → f)) x)
 listfold z f nil = z
 listfold {τ = τ} z f (cons x xs) = f renId x renId (listfold {τ = τ} z f xs)
 
@@ -252,8 +252,8 @@ eval γ (app tm tm₁) = eval γ tm renId (eval γ tm₁)
 eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
 eval γ (fst tm) = proj₁ (eval γ tm)
 eval γ (snd tm) = proj₂ (eval γ tm)
-eval γ ze = zero
-eval γ (sc tm) = suc (eval γ tm)
+eval γ ze = nze
+eval γ (su tm) = nsu (eval γ tm)
 eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
 eval γ nil = nil
 eval γ (cons t t₁) = cons (eval γ t) (eval γ t₁)
@@ -262,8 +262,8 @@ eval γ (fold {σ = σ}{τ = τ} z f n) = listfold {σ = σ}{τ = τ} (eval γ z
 
 idE : ∀{Γ} → Env Γ Γ
 idE {ε} ()
-idE {Γ < σ} zero = reflect σ (var zero)
-idE {Γ < τ} (suc {σ = σ}{τ = .τ} x) = renval {σ = σ} suc (idE {Γ} x) 
+idE {Γ < σ} vze = reflect σ (nvar vze)
+idE {Γ < τ} (vsu {σ = σ}{τ = .τ} x) = renval {σ = σ} vsu (idE {Γ} x) 
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)

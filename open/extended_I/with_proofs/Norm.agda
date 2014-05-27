@@ -93,11 +93,11 @@ evalsub<< : ∀{Γ Δ σ τ} → (γ : Env Γ Δ) → (u : Tm Γ σ) → (v : Va
 evalsub<< γ u vze = refl
 evalsub<< γ u (vsu v) = refl
 
-evalSim : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼ t' → _≅_ {A = Env _ _} γ {B = Env _ _} γ' → eval γ t ≅ eval γ' t'
-evalSim (refl∼ {t = t}) q = cong (λ (f : Env _ _) → eval f t) q 
-evalSim (sym∼ p) q = sym (evalSim p (sym q))
-evalSim (trans∼ p p₁) q = trans (evalSim p q) (evalSim p₁ refl)
-evalSim {σ = σ} {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
+evalsound : ∀{Γ Δ σ} → {t t' : Tm Γ σ} → {γ γ' : Env Γ Δ} → t ∼ t' → _≅_ {A = Env _ _} γ {B = Env _ _} γ' → eval γ t ≅ eval γ' t'
+evalsound (refl∼ {t = t}) q = cong (λ (f : Env _ _) → eval f t) q 
+evalsound (sym∼ p) q = sym (evalsound p (sym q))
+evalsound (trans∼ p p₁) q = trans (evalsound p q) (evalsound p₁ refl)
+evalsound {σ = σ} {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
   eval ((λ {σ'} → renval {σ = σ'} renId ∘ γ) << eval γ u) t
   ≅⟨ cong (λ (f : Env _ _) → eval (f << (eval γ u)) t) (iext λ σ' → ext λ x → renvalId {σ = σ'} (γ x)) ⟩
   eval (γ << eval γ u) t
@@ -108,26 +108,26 @@ evalSim {σ = σ} {γ = γ}{γ' = γ'} (beta∼ {t = t} {u = u}) q = proof
   ≅⟨ subeval  (sub<< var u) γ' t  ⟩
   eval γ' (sub (sub<< var u) t)
   ∎
-evalSim {σ = σ ⇒ τ} {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq 
+evalsound {σ = σ ⇒ τ} {γ = γ}{γ' = γ'} (eta∼ {t = t}) q = Σeq 
   (iext λ Δ → ext λ (ρ : Ren _ _) → ext λ v → lem Δ ρ v) 
   refl 
   ((iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → fixedtypesleft (cong (renval {σ = τ} ρ') (lem Δ ρ v)))) where 
          lem : ∀ Δ (ρ : Ren _ Δ) v → proj₁ (eval γ t) ρ v ≅ proj₁ (eval ((λ {σ} x → renval {σ = σ} ρ (γ' x)) << v) (ren (λ {σ} → vsu) t)) (λ {σ} x → x) v
          lem Δ ρ v = trans (trans (cong (λ (f : Env _ _) → proj₁ (eval f t) ρ v) q) (sym (cong (λ f → proj₁ f id v) (renvaleval γ' ρ t)))) (cong (λ f → proj₁ f id v) (reneval vsu ((λ {σ} x → renval {σ = σ} ρ (γ' x)) << v) t))
-evalSim (congapp∼ p p₁) (q) = cong₂ (λ f g → proj₁ f renId g) (evalSim p q) (evalSim p₁ q)
-evalSim {σ = σ ⇒ τ} (conglam∼ {t = t}{t' = t'} p) q = Σeq 
-  (iext λ Δ → ext λ (α : Ren _ _) → ext λ v → evalSim p (iext λ σ₁ → cong (λ (f : Env _ _) → (λ {σ'} → renval {σ = σ'} α ∘ f) << v) q)) 
+evalsound (congapp∼ p p₁) (q) = cong₂ (λ f g → proj₁ f renId g) (evalsound p q) (evalsound p₁ q)
+evalsound {σ = σ ⇒ τ} (conglam∼ {t = t}{t' = t'} p) q = Σeq 
+  (iext λ Δ → ext λ (α : Ren _ _) → ext λ v → evalsound p (iext λ σ₁ → cong (λ (f : Env _ _) → (λ {σ'} → renval {σ = σ'} α ∘ f) << v) q)) 
   refl 
   (iext λ Δ → iext λ Δ' → ext λ (ρ : Ren _ _) → ext λ (ρ' : Ren _ _) → ext λ v → 
-      fixedtypesleft (cong (renval {σ = τ} ρ') (evalSim p (iext λ _ → ext λ x → cong (λ f → ((λ {σ'} x → renval {σ = σ'} ρ (f x)) << v) x) q))))
-evalSim (congsu∼ p) q = cong nsu (evalSim p q)
-evalSim (congcons∼ x xs) q = cong₂ consLV (evalSim x q) (evalSim xs q)
-evalSim (congrec∼ z f n) q = cong₃ natfold (evalSim z q) (evalSim f q) (evalSim n q)
-evalSim (congrecze∼ z f) refl = refl
-evalSim {σ = σ}{γ = γ} (congrecsu∼ z f n) refl = refl
-evalSim (congfold∼ z f n) q = cong₃ listfold (evalSim z q) (evalSim f q) (evalSim n q)
-evalSim (congfoldnil∼ z f) refl = refl
-evalSim (congfoldcons∼ z f x xs) refl = refl
+      fixedtypesleft (cong (renval {σ = τ} ρ') (evalsound p (iext λ _ → ext λ x → cong (λ f → ((λ {σ'} x → renval {σ = σ'} ρ (f x)) << v) x) q))))
+evalsound (congsu∼ p) q = cong nsu (evalsound p q)
+evalsound (congcons∼ x xs) q = cong₂ consLV (evalsound x q) (evalsound xs q)
+evalsound (congrec∼ z f n) q = cong₃ natfold (evalsound z q) (evalsound f q) (evalsound n q)
+evalsound (congrecze∼ z f) refl = refl
+evalsound {σ = σ}{γ = γ} (congrecsu∼ z f n) refl = refl
+evalsound (congfold∼ z f n) q = cong₃ listfold (evalsound z q) (evalsound f q) (evalsound n q)
+evalsound (congfoldnil∼ z f) refl = refl
+evalsound (congfoldcons∼ z f x xs) refl = refl
 
 
 ≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
@@ -324,10 +324,11 @@ fund-thm (fold z f n) ρ η e = listfoldR {xsv = eval η n} (fund-thm z ρ η e)
 
 
 soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
-soundness p = cong (reify _) (evalSim p refl)
+soundness p = cong (reify _) (evalsound p refl)
   
 completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
 completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
+
 
 completeness : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
 completeness t t' p = trans∼ (completeness-lem t) 
