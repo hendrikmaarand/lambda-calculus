@@ -229,7 +229,7 @@ renvallistfold {σ = σ}{τ = τ} ρ z f (neLV x) = proof
   reflect τ (renNe ρ (nfold (reify τ z) (nlam (nlam (reify τ (proj₁ (proj₁ f vsu (reflect σ (nvar vze))) vsu (reflect τ (nvar vze)))))) x))
   ≅⟨ cong (reflect τ) 
      (cong₃ nfold 
-       (reifyRenval ρ z) --reify τ (proj₁ (renval {σ = τ ⇒ τ} (wk ρ) (proj₁ f vsu (reflect σ (nvar vze)))) vsu (reflect τ (nvar vze)))
+       (reifyRenval ρ z)
        (cong (λ x → nlam (nlam x)) (proof
          renNf (wk (wk ρ)) (reify τ (proj₁ (proj₁ f vsu (reflect σ (nvar vze))) vsu (reflect τ (nvar vze))))
          ≅⟨ reifyRenval (wk (wk ρ)) (proj₁ (proj₁ f vsu (reflect σ (nvar vze))) vsu (reflect τ (nvar vze))) ⟩

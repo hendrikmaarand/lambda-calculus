@@ -18,6 +18,15 @@ open ≅-Reasoning renaming (begin_ to proof_)
 open import Data.Nat hiding (_<_)
 
 
+open import Level public
+  using (Level) renaming (zero to lzero; suc to lsuc)
+
+open import Relation.Binary public
+  using (Setoid; module Setoid)
+
+import Relation.Binary.PreorderReasoning
+module Pre = Relation.Binary.PreorderReasoning
+
 
 data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   refl∼  : ∀{Γ}{σ} → {t : Tm Γ σ} → t ∼ t
@@ -41,6 +50,27 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   congproj∼   : ∀{Γ σ} → {n : ℕ} → {f g : Tm Γ < σ >} → f ∼ g → proj n f ∼ proj n g
   streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
   streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) 
+
+
+
+
+∼setoid : (Γ : Con)(σ : Ty) → Setoid lzero lzero
+∼setoid Γ σ = record
+  { Carrier       = Tm Γ σ
+  ; _≈_           = _∼_
+  ; isEquivalence = record
+    { refl  = refl∼
+    ; sym   = sym∼
+    ; trans = trans∼
+    }
+  }
+
+
+module ∼-Reasoning {Γ : Con}{σ : Ty} where
+  open Pre (Setoid.preorder (∼setoid Γ σ )) public
+    renaming (_≈⟨⟩_ to _∼⟨⟩_; _≈⟨_⟩_ to _≡⟨_⟩_; _∼⟨_⟩_ to _∼⟨_⟩_; _∎ to _Qed)
+
+--open ∼-Reasoning
 
 
 idE : ∀{Γ} → Env Γ Γ
@@ -356,13 +386,32 @@ soundness : ∀{Γ σ} → {t t' : Tm Γ σ} → t ∼ t' → norm t ≅ norm t'
 soundness p = cong (reify _) (evalsound p refl)
 
 completeness-lem : ∀{Γ σ} → (t : Tm Γ σ) → t ∼ embNf (norm t)
-completeness-lem t = trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
+completeness-lem t = begin
+  t
+  ∼⟨ ≅to∼ (sym (subid t)) ⟩
+  sub subId t
+  ∼⟨ reifyR _ (fund-thm t var idE idEE) ⟩
+  embNf (norm t)
+  Qed
+  where open ∼-Reasoning
+--trans∼ (≅to∼ (sym (subid t))) (reifyR _ (fund-thm t var idE idEE))
 
 completeness : ∀{Γ σ} → (t t' : Tm Γ σ) → norm t ≅ norm t' → t ∼ t'
-completeness t t' p = trans∼ (completeness-lem t) 
+completeness t t' p = 
+  begin 
+  t
+  ∼⟨ completeness-lem t ⟩
+  embNf (norm t)
+  ∼⟨ ≅to∼ (cong embNf p) ⟩
+  embNf (norm t')  
+  ∼⟨ sym∼ (completeness-lem t') ⟩
+  t'
+  Qed
+  where open ∼-Reasoning
+{- trans∼ (completeness-lem t) 
                      (trans∼ (≅to∼ (cong embNf p)) 
                        (sym∼ (completeness-lem t')))
-
+-}
 
 mutual
   stability : ∀{Γ σ} (n : Nf Γ σ) → n ≅ norm (embNf n)

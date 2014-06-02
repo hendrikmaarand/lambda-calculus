@@ -171,6 +171,10 @@ sub f (tup g) = tup (λ n → sub f (g n))
 sub f (proj n s) = proj n (sub f s) 
 
 
+sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
+sub<< f t vze = t
+sub<< f t (vsu x) = f x
+
 
 subId : ∀{Γ} → Sub Γ Γ
 subId = var
@@ -278,12 +282,33 @@ mutual
   eval γ (proj n s) = lookup (eval γ s) n 
 
 
+
 idE : ∀{Γ} → Env Γ Γ
-idE {ε} ()
-idE {Γ < σ} vze = reflect σ (nvar vze)
-idE {Γ < τ} (vsu {σ = σ}{τ = .τ} x) = renval {σ = σ} vsu (idE {Γ} x) 
+idE x = reflect _ (nvar x)
+
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
-
+data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
+  refl∼  : ∀{Γ}{σ} → {t : Tm Γ σ} → t ∼ t
+  sym∼   : ∀{Γ}{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
+  trans∼ : ∀{Γ}{σ} → {t u v : Tm Γ σ} → t ∼ u → u ∼ v → t ∼ v
+  beta∼  : ∀{Γ σ τ} → {t : Tm (Γ < σ) τ} → {u : Tm Γ σ} → app (lam t) u ∼ sub (sub<< var u) t
+  eta∼   : ∀{Γ σ τ} → {t : Tm Γ (σ ⇒ τ)} → t ∼ lam (app (ren vsu t) (var vze))
+  congapp∼  : ∀{Γ σ τ} → {t t' : Tm Γ (σ ⇒ τ)} → {u u' : Tm Γ σ} → t ∼ t' → u ∼ u' → app t u ∼ app t' u'
+  conglam∼  : ∀{Γ σ τ} → {t t' : Tm (Γ < σ) τ} → t ∼ t' → lam t ∼ lam t'
+  congsu∼   : ∀{Γ} → {t t' : Tm Γ nat} → t ∼ t' → su t ∼ su t'
+  congrec∼  : ∀{Γ σ} → {z z' : Tm Γ σ}{f f' : Tm Γ (σ ⇒ σ)}{n n' : Tm Γ nat} → z ∼ z' → f ∼ f' → n ∼ n' → rec z f n ∼ rec z' f' n'
+  congrecze∼ : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ)) → rec z f ze ∼ z
+  congrecsu∼  : ∀{Γ σ} → (z : Tm Γ σ)(f : Tm Γ (σ ⇒ σ))(n : Tm Γ nat) → rec z f (su n) ∼ app f (rec z f n)
+  congpair∼   : ∀{Γ σ τ} → {a a' : Tm Γ σ}{b b' : Tm Γ τ} → a ∼ a' → b ∼ b' → (a ,, b) ∼ (a' ,, b')
+  paireta∼    : ∀{Γ σ τ} → {t : Tm Γ (σ ∧ τ)} → t ∼ (fst t ,, snd t)
+  pairfst∼    : ∀{Γ σ τ} → {a : Tm Γ σ}{b : Tm Γ τ} → a ∼ fst (a ,, b)
+  pairsnd∼    : ∀{Γ σ τ} → {a : Tm Γ σ}{b : Tm Γ τ} → b ∼ snd (a ,, b)
+  congfst∼    : ∀{Γ σ τ} → {a a' : Tm Γ (σ ∧ τ)} → a ∼ a' → fst a ∼ fst a'
+  congsnd∼    : ∀{Γ σ τ} → {a a' : Tm Γ (σ ∧ τ)} → a ∼ a' → snd a ∼ snd a'
+  congtup∼    : ∀{Γ σ} → {f g : ℕ → Tm Γ σ} → (∀ n → f n ∼ g n) → tup f ∼ tup g
+  congproj∼   : ∀{Γ σ} → {n : ℕ} → {f g : Tm Γ < σ >} → f ∼ g → proj n f ∼ proj n g
+  streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
+  streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) 

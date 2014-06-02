@@ -4,18 +4,52 @@ open import Data.Nat hiding (_<_)
 
 open import Lambda
 
+
+open import Level public
+  using (Level) renaming (zero to lzero; suc to lsuc)
+
+open import Relation.Binary public
+  using (Setoid; module Setoid)
+
+import Relation.Binary.PreorderReasoning
+module Pre = Relation.Binary.PreorderReasoning
+
+
+∼setoid : (Γ : Con)(σ : Ty) → Setoid lzero lzero
+∼setoid Γ σ = record
+  { Carrier       = Tm Γ σ
+  ; _≈_           = _∼_
+  ; isEquivalence = record
+    { refl  = refl∼
+    ; sym   = sym∼
+    ; trans = trans∼
+    }
+  }
+
+
+module ∼-Reasoning {Γ : Con}{σ : Ty} where
+  open Pre (Setoid.preorder (∼setoid Γ σ )) public
+    renaming (_≈⟨⟩_ to _∼⟨⟩_; _≈⟨_⟩_ to _≡⟨_⟩_; _∼⟨_⟩_ to _∼⟨_⟩_; begin_ to proof_)
+
+
 id : ∀{Γ} → Tm Γ (ι ⇒ ι)
 id = lam (var vze)
 
-id' : ∀{Γ} → Tm Γ (ι ⇒ ι)
-id' = app (lam (var vze)) (lam (var vze))
+appvars : ∀{Γ} → Tm ((Γ < ι) < (ι ⇒ ι)) ι
+appvars = app (var vze) (var (vsu vze))
 
-fst-proj : ∀{Γ} → Tm Γ (ι ⇒ ι)
-fst-proj = fst (id' ,, (su ze))
+idapp : ∀{Γ} → Tm (Γ < (ι ⇒ ι)) (ι ⇒ ι)
+idapp = app (lam (var vze)) (var vze)
 
-pair : ∀{Γ} → Tm Γ (nat ∧ nat)
-pair = (fst (ze ,, (su ze)) ,, snd (ze ,, (su ze))) 
 
+pair : ∀{Γ} → Tm (Γ < (nat ∧ nat)) (nat ∧ nat)
+pair = var vze
+
+
+fst-proj : ∀{Γ} → Tm (Γ < (ι ∧ ι)) (ι ∧ ι)
+fst-proj = fst (var vze ,, var vze)
+
+--sub (sub<< var (lam (var vze))) appvars
 
 plus-one : ∀{Γ} → ℕ → Tm Γ nat
 plus-one zero = su ze

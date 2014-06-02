@@ -268,3 +268,23 @@ idE {Γ < τ} (vsu {σ = σ}{τ = .τ} x) = renval {σ = σ} vsu (idE {Γ} x)
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
+
+mutual
+  embNf : ∀{Γ σ} → Nf Γ σ → Tm Γ σ
+  embNf (nlam n) = lam (embNf n)
+  embNf (ne x) = embNe x
+  embNf (a ,, b) = embNf a ,, embNf b
+  embNf nze = ze
+  embNf (nsu n) = su (embNf n)
+  embNf nnil = nil
+  embNf (ncons h t) = cons (embNf h) (embNf t)
+
+  embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
+  embNe (nvar x) = var x
+  embNe (napp t u) = app (embNe t) (embNf u)
+  embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
+  embNe (nfold x f n) = fold (embNf x) (embNf f) (embNe n)
+  embNe (nfst n) = fst (embNe n)
+  embNe (nsnd n) = snd (embNe n)
+
+
