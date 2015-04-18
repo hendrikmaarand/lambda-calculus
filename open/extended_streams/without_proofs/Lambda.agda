@@ -303,27 +303,27 @@ natfold {σ = σ} z f nze = z
 natfold {σ = σ} z f (nsu n) = f id (natfold {σ = σ} z f n)
 
 
-mutual
-  eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
-  eval γ (var x) = γ x
-  eval γ (lam t) = λ α v → eval (renenv α γ << v) t
-  eval γ (app t u) = eval γ t renId (eval γ u)
-  eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
-  eval γ (fst tm) = proj₁ (eval γ tm)
-  eval γ (snd tm) = proj₂ (eval γ tm)
-  eval γ ze = nze
-  eval γ (su tm) = nsu (eval γ tm)
-  eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
-  eval γ (tup {σ = σ} f) = tabulate (λ n → eval γ (f n))
-  eval γ (proj n s) = lookup (eval γ s) n 
-  eval γ (unf x f) = record { h = eval γ x ; t = eval γ f }
-  eval γ (sh s) = h (eval γ s)
-  eval {Γ}{Δ} γ (st s) = record { 
-    h = let s' = eval γ s in 
-      t s' renId (h s') ; 
-    t = λ α v → let s' = eval γ s in 
-                let t' = t s' in 
-                t' α v}
+
+eval : ∀{Γ Δ σ} → Env Γ Δ → Tm Γ σ → Val Δ σ
+eval γ (var x) = γ x
+eval γ (lam t) = λ α v → eval (renenv α γ << v) t
+eval γ (app t u) = eval γ t renId (eval γ u)
+eval γ (tm ,, tm₁) = eval γ tm , eval γ tm₁
+eval γ (fst tm) = proj₁ (eval γ tm)
+eval γ (snd tm) = proj₂ (eval γ tm)
+eval γ ze = nze
+eval γ (su tm) = nsu (eval γ tm)
+eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
+eval γ (tup {σ = σ} f) = tabulate (λ n → eval γ (f n))
+eval γ (proj n s) = lookup (eval γ s) n 
+eval γ (unf x f) = record { h = eval γ x ; t = eval γ f }
+eval γ (sh s) = h (eval γ s)
+eval {Γ}{Δ} γ (st s) = record { 
+  h = let s' = eval γ s in 
+    t s' renId (h s') ; 
+  t = λ α v → let s' = eval γ s in 
+              let t' = t s' in 
+              t' α v}
 
 
 idE : ∀{Γ} → Env Γ Γ
