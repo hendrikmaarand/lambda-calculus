@@ -18,6 +18,7 @@ data Ty : Set where
   _⇒_ : Ty → Ty → Ty
   _∧_ : Ty → Ty → Ty
   <_> : Ty → Ty
+  [_] : Ty → Ty
   
 
 infixr 10 _⇒_
@@ -44,6 +45,9 @@ data Tm (Γ : Con) : Ty → Set where
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
   proj : ∀{σ} → ℕ → Tm Γ < σ > → Tm Γ σ
   tup  : ∀{σ} → (ℕ → Tm Γ σ) → Tm Γ < σ >
+  unf  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ [ σ ]
+  sh   : ∀{σ} → Tm Γ [ σ ] → Tm Γ σ
+  st   : ∀{σ} → Tm Γ [ σ ] → Tm Γ [ σ ]
 
 
 mutual 
@@ -51,9 +55,10 @@ mutual
     nlam  : ∀{σ τ} → Nf (Γ < σ) τ → Nf Γ (σ ⇒ τ)
     ne   : ∀{σ} → Ne Γ σ → Nf Γ σ
     _,-,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
-    nze : Nf Γ nat
+    nze  : Nf Γ nat
     nsu  : Nf Γ nat → Nf Γ nat
-    ntup : ∀{σ}→ (ℕ → Nf Γ σ) → Nf Γ < σ > 
+    ntup : ∀{σ} → (ℕ → Nf Γ σ) → Nf Γ < σ > 
+    nunf : ∀{σ} → Nf Γ σ → Nf Γ (σ ⇒ σ) → Nf Γ [ σ ]
    
   data Ne (Γ : Con) : Ty → Set where
     nvar : ∀{σ} → Var Γ σ → Ne Γ σ
@@ -62,6 +67,8 @@ mutual
     nsnd : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
     nrec : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     nproj : ∀{σ} → ℕ → Ne Γ < σ > → Ne Γ σ
+    nsh  : ∀{σ} → Ne Γ [ σ ] → Ne Γ σ
+    nst  : ∀{σ} → Ne Γ [ σ ] → Ne Γ [ σ ]
    
 
 mutual
@@ -72,6 +79,7 @@ mutual
   embNf nze = ze
   embNf (nsu n) = su (embNf n)
   embNf (ntup f) = tup (λ n → embNf (f n))
+  embNf (nunf x f) = unf (embNf x) (embNf f)
 
   embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
   embNe (nvar x) = var x
@@ -80,6 +88,8 @@ mutual
   embNe (nsnd n) = snd (embNe n)
   embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
   embNe (nproj n s) = proj n (embNe s)
+  embNe (nsh s) = sh (embNe s)
+  embNe (nst s) = st (embNe s)
 
 
 -- the type of renamings: functions mapping variables in one context to
@@ -118,6 +128,9 @@ ren α (su tm) = su (ren α tm)
 ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
 ren α (tup f) = tup (λ n → ren α (f n))
 ren α (proj n s) = proj n (ren α s)
+ren α (unf x f) = unf (ren α x) (ren α f) 
+ren α (sh s) = sh (ren α s)
+ren α (st s) = st (ren α s)
 
 
 
@@ -129,6 +142,7 @@ mutual
   renNf α nze = nze
   renNf α (nsu n) = nsu (renNf α n)
   renNf α (ntup f) = ntup (λ n → renNf α (f n))
+  renNf α (nunf x f) = nunf (renNf α x) (renNf α f)
 
     
   renNe : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Ne Δ σ → Ne Γ σ
@@ -138,6 +152,8 @@ mutual
   renNe α (nsnd n) = nsnd (renNe α n)
   renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
   renNe α (nproj n s) = nproj n (renNe α s) 
+  renNe α (nsh s) = nsh (renNe α s) 
+  renNe α (nst s) = nst (renNe α s)
 
 
 -- the identity renaming (maps variables to themselves)
@@ -169,6 +185,9 @@ sub f (su tm) = su (sub f tm)
 sub f (rec z fn n) = rec (sub f z) (sub f fn) (sub f n)
 sub f (tup g) = tup (λ n → sub f (g n))
 sub f (proj n s) = proj n (sub f s) 
+sub f (unf x g) = unf (sub f x) (sub f g)
+sub f (sh s) = sh (sub f s)
+sub f (st s) = st (sub f s)
 
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
@@ -192,6 +211,7 @@ record Stream (A : Set) : Set where
 open Stream
 
 
+
 lookup : ∀{A} → (s : Stream A) → (ℕ → A)
 lookup s zero = head s
 lookup s (suc n) = lookup (tail s) n
@@ -200,13 +220,22 @@ tabulate : ∀{A} → (ℕ → A) → Stream A
 head (tabulate f) = f zero
 tail (tabulate f) = tabulate (λ n → f (suc n))  
 
+mutual
+  Val : Con → Ty → Set
+  Val Γ ι = Nf Γ ι
+  Val Γ nat = Nf Γ nat
+  Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ 
+  Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
+  Val Γ < σ > = Stream (Val Γ σ)
+  Val Γ [ σ ] = St Γ σ
 
-Val : Con → Ty → Set
-Val Γ ι = Nf Γ ι
-Val Γ nat = Nf Γ nat
-Val Γ (σ ⇒ τ) = ∀{Δ} → Ren Γ Δ → Val Δ σ → Val Δ τ 
-Val Γ (σ ∧ τ) = Val Γ σ × Val Γ τ
-Val Γ < σ > = Stream (Val Γ σ)
+
+  record St (Γ : Con) (σ : Ty) : Set where
+    field h : Val Γ σ
+          t : Val Γ (σ ⇒ σ)
+
+open St
+
 
 renval : ∀{Γ Δ σ} → Ren Γ Δ → Val Γ σ → Val Δ σ
 renval {σ = ι} α x = renNf α x
@@ -215,6 +244,9 @@ renval {σ = σ ⇒ τ} α v = λ {E} β v' → v (renComp β α) v'
 renval {σ = σ ∧ τ} α v = renval {σ = σ} α (proj₁ v) , renval {σ = τ} α (proj₂ v)
 head (renval {Γ} {Δ} {< σ >} α s) = renval {σ = σ} α (head s)
 tail (renval {Γ} {Δ} {< σ >} α s) = renval {σ = < σ >} α (tail s)
+renval {Γ} {Δ} {σ = [ σ ]} α x = record { 
+  h = renval {σ = σ} α (h(x)) ; 
+  t = λ α' v → (t x) (renComp α' α) v }
 
 
 Env : Con → Con → Set
@@ -252,6 +284,7 @@ mutual
   reify (σ ⇒ τ) x = nlam (reify τ (x vsu (reflect σ (nvar vze))))
   reify (σ ∧ τ) x = reify σ (proj₁ x) ,-, reify τ (proj₂ x)
   reify < σ > s = ntup (λ n → reify σ (lookup s n))
+  reify [ σ ] s = nunf (reify σ (h (s))) (nlam (reify σ ((t s) vsu (reflect σ (nvar vze)))))
 
   reflect : ∀{Γ} σ → Ne Γ σ → Val Γ σ
   reflect ι v = ne v
@@ -259,8 +292,11 @@ mutual
   reflect (σ ⇒ τ) n = λ α v → reflect τ (napp (renNe α n) (reify σ v))
   reflect (σ ∧ τ) n = (reflect σ (nfst n)) , (reflect τ (nsnd n))
   reflect < σ > xs = tabulate (λ n → reflect σ (nproj n xs)) 
+  reflect [ σ ] n = record { 
+    h = reflect σ (nsh n) ; 
+    t = λ α y → reflect σ (nsh (nst (renNe α n))) }
 
- 
+
 natfold : ∀{Γ σ} → Val Γ σ  → Val Γ (σ ⇒ σ) → Val Γ nat → Val Γ σ
 natfold {σ = σ} z f (ne x) = reflect σ (nrec (reify _ z) (reify (_ ⇒ _) f) x)
 natfold {σ = σ} z f nze = z
@@ -280,7 +316,14 @@ mutual
   eval {σ = σ} γ (rec z f n) = natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n)
   eval γ (tup {σ = σ} f) = tabulate (λ n → eval γ (f n))
   eval γ (proj n s) = lookup (eval γ s) n 
-
+  eval γ (unf x f) = record { h = eval γ x ; t = eval γ f }
+  eval γ (sh s) = h (eval γ s)
+  eval {Γ}{Δ} γ (st s) = record { 
+    h = let s' = eval γ s in 
+      t s' renId (h s') ; 
+    t = λ α v → let s' = eval γ s in 
+                let t' = t s' in 
+                t' α v}
 
 
 idE : ∀{Γ} → Env Γ Γ
@@ -290,6 +333,34 @@ idE x = reflect _ (nvar x)
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
 
+
+
+add : ∀{Γ} → Tm Γ (nat ⇒ nat)
+add = lam (su (var vze))
+
+plus-one : ∀{Γ} → Tm Γ [ nat ]
+plus-one = unf ze add
+
+s-1 : ∀{Γ} → Tm Γ nat
+s-1 = sh plus-one
+
+s-2 : ∀{Γ} → Tm Γ nat
+s-2 = sh (st (plus-one))
+
+po-nf : ∀{Γ} → Nf Γ [ nat ]
+po-nf = norm plus-one
+
+s1-nf : ∀{Γ} → Nf Γ nat
+s1-nf = norm s-1
+
+{-
+stream : ∀{Γ} → Tm Γ < nat >
+stream = tup plus-one
+
+stream[1] : ∀{Γ} → Tm Γ nat
+stream[1] = proj (suc zero) stream
+-}
+{-
 data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   refl∼  : ∀{Γ}{σ} → {t : Tm Γ σ} → t ∼ t
   sym∼   : ∀{Γ}{σ} → {t u : Tm Γ σ} → t ∼ u → u ∼ t
@@ -312,3 +383,5 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   congproj∼   : ∀{Γ σ} → {n : ℕ} → {f g : Tm Γ < σ >} → f ∼ g → proj n f ∼ proj n g
   streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
   streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) 
+
+-}
