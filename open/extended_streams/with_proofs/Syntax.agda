@@ -33,8 +33,9 @@ data Tm (Γ : Con) : Ty → Set where
   ze   : Tm Γ nat
   su   : Tm Γ nat → Tm Γ nat
   rec  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ nat → Tm Γ σ 
-  proj : ∀{σ} → ℕ → Tm Γ < σ > → Tm Γ σ
-  tup  : ∀{σ} → (ℕ → Tm Γ σ) → Tm Γ < σ >
+  unf  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ < σ >
+  sh   : ∀{σ} → Tm Γ < σ > → Tm Γ σ
+  st   : ∀{σ} → Tm Γ < σ > → Tm Γ < σ >
 
 
 -- the type of renamings: functions mapping variables in one context to
@@ -61,7 +62,6 @@ wk ρ (vsu y) = vsu (ρ y)
 -- a lambda term. i.e. lambda binds a new variable 0, we don't want to
 -- change that but we want to rename any other variables in the body.
 
-
 ren : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Tm Δ σ → Tm Γ σ
 ren α (var x) = var (α x)
 ren α (lam t) = lam (ren (wk α) t)
@@ -72,8 +72,9 @@ ren α (snd t) = snd (ren α t)
 ren α ze = ze
 ren α (su t) = su (ren α t)
 ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
-ren α (proj n s) = proj n (ren α s)
-ren α (tup f) = tup (λ n → ren α (f n))
+ren α (unf x f) = unf (ren α x) (ren α f)
+ren α (sh s) = sh (ren α s)
+ren α (st s) = st (ren α s)
   
 
 -- the identity renaming (maps variables to themselves)
@@ -126,8 +127,9 @@ renid (rec z f n) = cong₃ rec (renid z) (renid f) (renid n)
 renid (a ,, b) = cong₂ _,,_ (renid a) (renid b)
 renid (fst t) = cong fst (renid t)
 renid (snd t) = cong snd (renid t)
-renid (proj n f) = cong (proj n) (renid f) 
-renid (tup f) = cong tup (ext (λ n → renid (f n)))
+renid (unf x f) = cong₂ unf (renid x) (renid f)
+renid (sh s) = cong sh (renid s)
+renid (st s) = cong st (renid s)
 
 
 -- composing two renamings and then weakening them together should be
@@ -156,8 +158,9 @@ rencomp f g (rec z h n) = cong₃ rec (rencomp f g z) (rencomp f g h) (rencomp f
 rencomp f g (a ,, b) = cong₂ _,,_ (rencomp f g a) (rencomp f g b)
 rencomp f g (fst t) = cong fst (rencomp f g t)
 rencomp f g (snd t) = cong snd (rencomp f g t)
-rencomp f g (proj n s) = cong (proj n) (rencomp f g s)
-rencomp f g (tup fn) = cong tup (ext (λ n → rencomp f g (fn n)))
+rencomp f g (unf x fn) = cong₂ unf (rencomp f g x) (rencomp f g fn)
+rencomp f g (sh s) = cong sh (rencomp f g s)
+rencomp f g (st s) = cong st (rencomp f g s)
 
 
 Sub : Con → Con → Set
@@ -177,8 +180,9 @@ sub f (rec z g n) = rec (sub f z) (sub f g) (sub f n)
 sub f (a ,, b) = sub f a ,, sub f b
 sub f (fst t) = fst (sub f t)
 sub f (snd t) = snd (sub f t)
-sub f (proj n s) = proj n (sub f s)
-sub f (tup g) = tup (λ n → sub f (g n))
+sub f (unf x fn) = unf (sub f x) (sub f fn)
+sub f (sh s) = sh (sub f s)
+sub f (st s) = st (sub f s)
 
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
@@ -212,8 +216,9 @@ subid (rec z f n) = cong₃ rec (subid z) (subid f) (subid n)
 subid (a ,, b) = cong₂ _,,_ (subid a) (subid b)
 subid (fst t) = cong fst (subid t)
 subid (snd t) = cong snd (subid t)
-subid (proj n s) = cong (proj n) (subid s)
-subid (tup f) = cong tup (ext (λ n → subid (f n)))
+subid (unf x f) = cong₂ unf (subid x) (subid f)
+subid (sh s) = cong sh (subid s)
+subid (st s) = cong st (subid s)
 
 
 -- time for the mysterious four lemmas:
@@ -240,8 +245,9 @@ subren f g (rec z h n) = cong₃ rec (subren f g z) (subren f g h) (subren f g n
 subren f g (a ,, b) = cong₂ _,,_ (subren f g a) (subren f g b)
 subren f g (fst t) = cong fst (subren f g t)
 subren f g (snd t) = cong snd (subren f g t)
-subren f g (proj n s) = cong (proj n) (subren f g s)
-subren f g (tup fn) = cong tup (ext (λ n → subren f g (fn n)))
+subren f g (unf x fn) = cong₂ unf (subren f g x) (subren f g fn)
+subren f g (sh s) = cong sh (subren f g s)
+subren f g (st s) = cong st (subren f g s)
 
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -266,8 +272,9 @@ rensub f g (rec z h n) = cong₃ rec (rensub f g z) (rensub f g h) (rensub f g n
 rensub f g (a ,, b) = cong₂ _,,_ (rensub f g a) (rensub f g b)
 rensub f g (fst t) = cong fst (rensub f g t)
 rensub f g (snd t) = cong snd (rensub f g t)
-rensub f g (proj n s) = cong (proj n) (rensub f g s)
-rensub f g (tup fn) = cong tup (ext (λ n → rensub f g (fn n)))
+rensub f g (unf x fn) = cong₂ unf (rensub f g x) (rensub f g fn)
+rensub f g (sh s) = cong sh (rensub f g s)
+rensub f g (st s) = cong st (rensub f g s)
 
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -299,6 +306,7 @@ subcomp f g (rec z h n) = cong₃ rec (subcomp f g z) (subcomp f g h) (subcomp f
 subcomp f g (a ,, b) = cong₂ _,,_ (subcomp f g a) (subcomp f g b)
 subcomp f g (fst t) = cong fst (subcomp f g t)
 subcomp f g (snd t) = cong snd (subcomp f g t)
-subcomp f g (proj n s) = cong (proj n) (subcomp f g s)
-subcomp f g (tup fn) = cong tup (ext (λ n → subcomp f g (fn n)))
+subcomp f g (unf x fn) = cong₂ unf (subcomp f g x) (subcomp f g fn)
+subcomp f g (sh s) = cong sh (subcomp f g s)
+subcomp f g (st s) = cong st (subcomp f g s)
 
