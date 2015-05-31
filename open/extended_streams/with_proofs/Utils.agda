@@ -27,3 +27,8 @@ ifcong refl a = refl
 
 fcong : ∀{A B : Set} → {f f' : A → B} → f ≅ f' → (a : A) → f a ≅ f' a
 fcong refl a = refl
+
+funny : ∀{A : Set}{B : A → Set}{C : Set}{a a' : A} → a ≅ a' → {b : B a}{b' : B a'} → b ≅ b' → 
+               (f : (a : A) → B a → C) → f a b ≅ f a' b'
+funny refl refl f = refl
+

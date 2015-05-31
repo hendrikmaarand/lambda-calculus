@@ -1,5 +1,3 @@
-{-# OPTIONS --copatterns #-}
-
 module ReifyReflect where
 
 open import Syntax

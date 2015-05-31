@@ -16,7 +16,7 @@ mutual
     _,-,_ : ∀{σ τ} → Nf Γ σ → Nf Γ τ → Nf Γ (σ ∧ τ)
     nze   : Nf Γ nat
     nsu   : Nf Γ nat → Nf Γ nat
-    ntup  : ∀{σ} → (ℕ → Nf Γ σ) → Nf Γ < σ > 
+    nunf  : ∀{σ} → Nf Γ σ → Nf Γ (σ ⇒ σ) → Nf Γ < σ > 
    
   data Ne (Γ : Con) : Ty → Set where
     nvar  : ∀{σ} → Var Γ σ → Ne Γ σ
@@ -24,7 +24,8 @@ mutual
     nfst  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ σ
     nsnd  : ∀{σ τ} → Ne Γ (σ ∧ τ) → Ne Γ τ
     nrec  : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
-    nproj : ∀{σ} → ℕ → Ne Γ < σ > → Ne Γ σ
+    nsh   : ∀{σ} → Ne Γ < σ > → Ne Γ σ
+    nst   : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
 
 
 mutual
@@ -35,7 +36,7 @@ mutual
   embNf (a ,-, b) = embNf a ,, embNf b
   embNf nze = ze
   embNf (nsu n) = su (embNf n)
-  embNf (ntup f) = tup (λ n → embNf (f n))
+  embNf (nunf x f) = unf (embNf x) (embNf f)
 
   embNe : ∀{Γ σ} → Ne Γ σ → Tm Γ σ
   embNe (nvar x) = var x
@@ -43,7 +44,8 @@ mutual
   embNe (nfst n) = fst (embNe n)
   embNe (nsnd n) = snd (embNe n)
   embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
-  embNe (nproj n s) = proj n (embNe s)
+  embNe (nsh s) = sh (embNe s)
+  embNe (nst s) = st (embNe s)
 
 
 mutual
@@ -54,7 +56,7 @@ mutual
   renNf α (a ,-, b) = renNf α a ,-, renNf α b
   renNf α nze = nze
   renNf α (nsu n) = nsu (renNf α n)
-  renNf α (ntup f) = ntup (λ n → renNf α (f n))
+  renNf α (nunf x f) = nunf (renNf α x) (renNf α f)
 
   renNe : ∀{Γ Δ} → Ren Δ Γ → ∀{σ} → Ne Δ σ → Ne Γ σ
   renNe α (nvar x) = nvar (α x)
@@ -62,7 +64,8 @@ mutual
   renNe α (nfst n) = nfst (renNe α n)
   renNe α (nsnd n) = nsnd (renNe α n)
   renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
-  renNe α (nproj n s) = nproj n (renNe α s)
+  renNe α (nsh s) = nsh (renNe α s)
+  renNe α (nst s) = nst (renNe α s)
 
 
 
@@ -73,7 +76,8 @@ mutual
   rennecomp ρ' ρ (nrec z f n) = cong₃ nrec (rennfcomp ρ' ρ z) (rennfcomp ρ' ρ f) (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nfst n) = cong nfst (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
-  rennecomp ρ' ρ (nproj n s) = cong (nproj n) (rennecomp ρ' ρ s)
+  rennecomp ρ' ρ (nsh n) = cong nsh (rennecomp ρ' ρ n)
+  rennecomp ρ' ρ (nst n) = cong nst (rennecomp ρ' ρ n)
 
   rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
   rennfcomp ρ' ρ (nlam v) = proof
@@ -88,7 +92,7 @@ mutual
   rennfcomp ρ' ρ nze = refl
   rennfcomp ρ' ρ (nsu v) = cong nsu (rennfcomp ρ' ρ v)
   rennfcomp ρ' ρ (a ,-, b) = cong₂ _,-,_ (rennfcomp ρ' ρ a) (rennfcomp ρ' ρ b)
-  rennfcomp ρ' ρ (ntup f) = cong ntup (ext (λ n → rennfcomp ρ' ρ (f n)))
+  rennfcomp ρ' ρ (nunf x f) = cong₂ nunf (rennfcomp ρ' ρ x) (rennfcomp ρ' ρ f)
 
 
 mutual
@@ -105,7 +109,7 @@ mutual
   rennfid nze = refl
   rennfid (nsu n) = cong nsu (rennfid n)
   rennfid (a ,-, b) = cong₂ _,-,_ (rennfid a) (rennfid b)
-  rennfid (ntup f) = cong ntup (ext (λ n → rennfid (f n)))
+  rennfid (nunf x f) = cong₂ nunf (rennfid x) (rennfid f)
   
   renneid : ∀{Γ σ} → (n : Ne Γ σ) → renNe renId n ≅ n
   renneid (nvar x) = refl
@@ -113,5 +117,7 @@ mutual
   renneid (nrec z f n) = cong₃ nrec (rennfid z) (rennfid f) (renneid n)
   renneid (nfst n) = cong nfst (renneid n)
   renneid (nsnd n) = cong nsnd (renneid n)
-  renneid (nproj n s) = cong (nproj n) (renneid s)
+  renneid (nsh n) = cong nsh (renneid n)
+  renneid (nst n) = cong nst (renneid n)
+
 
