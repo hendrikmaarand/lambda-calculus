@@ -32,3 +32,8 @@ funny : ∀{A : Set}{B : A → Set}{C : Set}{a a' : A} → a ≅ a' → {b : B a
                (f : (a : A) → B a → C) → f a b ≅ f a' b'
 funny refl refl f = refl
 
+p₁ : ∀{a b}{A : Set a}{B : Set b} → {a a' : A}{b b' : B} → a , b  ≅ a' , b' → a ≅ a'
+p₁ refl = refl
+
+p₂ : ∀{a b}{A : Set a}{B : Set b} → {a a' : A}{b b' : B} → a , b  ≅ a' , b' → b ≅ b'
+p₂ refl = refl
