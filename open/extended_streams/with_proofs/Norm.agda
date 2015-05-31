@@ -1,6 +1,3 @@
-{-# OPTIONS --copatterns --termination-depth=1 #-}
-
-
 module Norm where
 
 open import Syntax
