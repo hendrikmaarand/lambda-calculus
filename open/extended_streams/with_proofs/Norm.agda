@@ -252,9 +252,14 @@ nat ∋ t R nze = t ∼ ze
 nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
 (σ ∧ τ) ∋ t R v = σ ∋ fst t R proj₁ v × τ ∋ snd t R proj₂ v  
-< σ > ∋ t R v = {!!}
+< σ > ∋ t R v = Σ (Tm _ σ) (λ x' → Σ (Tm _ (σ ⇒ σ)) (λ f' → 
+  unf x' f' ∼ t × 
+  σ ∋ x' R x v × 
+  σ ∋ app f' x' R proj₁ (f v) renId (x v))) -- maybe should take ρ
 
-{-
+--Σ (Tm Γ σ) (λ x' → Σ (Tm Γ (σ ⇒ σ)) (λ f' → unf x' f' ∼ t × σ ∋ x' R x v × (σ ⇒ σ) ∋ f' R f v))
+
+
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
 R∼ {σ = ι} r p = trans∼ (sym∼ p) r
 R∼ {σ = σ ⇒ τ} r p =  λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
@@ -262,7 +267,8 @@ R∼ {σ = nat} {v = nenat x} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat} {v = nze} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat}{t = t}{t' = t'} {v = nsu n} (t'' , t'∼ , t''Rn) p = t'' , ((trans∼ (sym∼ p) t'∼) , t''Rn)
 R∼ {σ = σ ∧ τ} {v = v} r p = R∼ (proj₁ r) (congfst∼ p) , R∼ (proj₂ r) (congsnd∼ p)
-R∼ {σ = < σ >} r p n = R∼ (r n) (congproj∼ p)
+R∼ {σ = < σ >} (t , f , q) p = t , (f , (trans∼ (proj₁ q) p) , proj₂ q)
+
 
 R'∼ : ∀{Γ σ} → {t : Tm Γ σ} → {v v' : Val Γ σ} → σ ∋ t R v → v ≅ v' → σ ∋ t R v'
 R'∼ r refl = r
@@ -277,7 +283,7 @@ mutual
   ren-embNf α (a ,-, b) = congpair∼ (ren-embNf α a) (ren-embNf α b)
   ren-embNf α nze = refl∼
   ren-embNf α (nsu n) = congsu∼ (ren-embNf α n)
-  ren-embNf α (ntup f) = congtup∼ (λ n → ren-embNf α (f n))
+  ren-embNf α (nunf x f) = congunf∼ (ren-embNf α x) (ren-embNf α f)
 
   ren-embNe : ∀{Γ Δ σ} → (α : Ren Γ Δ)(n : Ne Γ σ) → ren α (embNe n) ∼ embNe (renNe α n)
   ren-embNe α (nvar x) = refl∼
@@ -285,7 +291,8 @@ mutual
   ren-embNe α (nfst x) = congfst∼ (ren-embNe α x)
   ren-embNe α (nsnd x) = congsnd∼ (ren-embNe α x)
   ren-embNe α (nrec z f n) = congrec∼ (ren-embNf α z) (ren-embNf α f) (ren-embNe α n)
-  ren-embNe α (nproj n s) = congproj∼ (ren-embNe α s)
+  ren-embNe α (nsh s) = congsh∼ (ren-embNe α s)
+  ren-embNe α (nst s) = congst∼ (ren-embNe α s)
 
 
 R-ren : ∀{Γ Δ σ}{t : Tm Γ σ}{v : Val Γ σ} → (α : Ren Γ Δ) → σ ∋ t R v → σ ∋ ren α t R renval {σ = σ} α v
@@ -295,8 +302,15 @@ R-ren {σ = nat} {v = nenat x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
 R-ren {σ = nat} {v = nze} α r = ren∼ refl r
 R-ren {σ = nat} {v = nsu v} α (n , t∼ , nRv) = (ren α n) , ((ren∼ refl t∼) , R-ren {t = n}{v = v} α nRv)
 R-ren {σ = σ ∧ τ}{v = v} α r = (R-ren {σ = σ} α (proj₁ r)) , (R-ren {σ = τ} α (proj₂ r))
-R-ren {σ = < σ >}{t = s}{v = v} α r = λ n → R'∼ {t = ren α (proj n s)} (R-ren {σ = σ} α (r n)) (renvallookup α v n)
+R-ren {σ = < σ >}{t = s}{v = v} α (x' , f' , q) = (ren α x') , (
+  (ren α f') , 
+  (ren∼ refl (proj₁ q) , 
+  (R-ren {t = x'} α (proj₁ (proj₂ q))) ,
+  {!R∼ !}))
 
+--λ n → R'∼ {t = ren α (proj n s)} (R-ren {σ = σ} α (r n)) (renvallookup α v n)
+
+{-
 _E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
 ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x R η x
 
