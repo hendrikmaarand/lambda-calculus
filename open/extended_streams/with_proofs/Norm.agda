@@ -7,13 +7,13 @@ open import ReifyReflect
 open import Evaluator
 open import Folds
 open import Utils
+open import EvalLaws
 
 open import Function
 open import Data.Product hiding (map)
 open import Relation.Binary.HeterogeneousEquality
 open ≅-Reasoning renaming (begin_ to proof_)
 open import Data.Nat hiding (_<_)
-
 
 open import Level public
   using (Level) renaming (zero to lzero; suc to lsuc)
@@ -43,11 +43,11 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   pairsnd∼    : ∀{Γ σ τ} → {a : Tm Γ σ}{b : Tm Γ τ} → b ∼ snd (a ,, b)
   congfst∼    : ∀{Γ σ τ} → {a a' : Tm Γ (σ ∧ τ)} → a ∼ a' → fst a ∼ fst a'
   congsnd∼    : ∀{Γ σ τ} → {a a' : Tm Γ (σ ∧ τ)} → a ∼ a' → snd a ∼ snd a'
-  congtup∼    : ∀{Γ σ} → {f g : ℕ → Tm Γ σ} → (∀ n → f n ∼ g n) → tup f ∼ tup g
-  congproj∼   : ∀{Γ σ} → {n : ℕ} → {f g : Tm Γ < σ >} → f ∼ g → proj n f ∼ proj n g
-  streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
-  streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) 
-
+  congunf∼    : ∀{Γ σ} → {x x' : Tm Γ σ}{f f' : Tm Γ (σ ⇒ σ)} → x ∼ x' → f ∼ f' → unf x f ∼ unf x' f'
+  congsh∼     : ∀{Γ σ} → {s s' : Tm Γ < σ >} → s ∼ s' → sh s ∼ sh s'
+  congst∼     : ∀{Γ σ} → {s s' : Tm Γ < σ >} → s ∼ s' → st s ∼ st s'
+  {-streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
+  streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) -}
 
 
 
@@ -79,6 +79,15 @@ idEsuc<< (vsu x) = sym (renvalReflect vsu (nvar x))
 
 norm : ∀{Γ σ} → Tm Γ σ → Nf Γ σ
 norm t = reify _ (eval idE t)
+
+-- testing
+add : ∀{Γ} → Tm Γ (nat ⇒ nat)
+add = lam (su (var vze))
+
+plus-one : ∀{Γ} → Tm Γ < nat >
+plus-one = unf ze add
+-- end testing
+
 
 
 renvaleval : ∀{Γ Δ E σ} → (γ : Env Δ Γ) → (ρ : Ren Γ E) → (t : Tm Δ σ) → eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) t ≅ renval {σ = σ} ρ (eval γ t)
@@ -114,20 +123,26 @@ renvaleval {σ = σ} γ ρ (rec z f n) = proof
   ≅⟨ sym (renvalnatfold {σ = σ} ρ (eval γ z) (eval γ f) (eval γ n)) ⟩
   renval {σ = σ} ρ (natfold {σ = σ} (eval γ z) (eval γ f) (eval γ n))
   ∎
-renvaleval {σ = σ} γ ρ (proj n s) = proof
-  lookup (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s) n
-  ≅⟨ cong (λ s' → lookup s' n) (renvaleval γ ρ s) ⟩
-  lookup (renval {σ = < σ >} ρ (eval γ s)) n
-  ≅⟨  sym (renvallookup ρ (eval γ s) n)  ⟩
-  renval {σ = σ} ρ (lookup (eval γ s) n)
-  ∎
-renvaleval {σ = < σ >} γ ρ (tup f) = proof
-  eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) (tup f) 
-  ≅⟨ cong tabulate (ext (λ n → renvaleval γ ρ (f n))) ⟩
-  tabulate (λ n → renval {σ = σ} ρ (eval γ (f n)))
-  ≅⟨ sym (SEq (renvaltab (λ n → eval γ (f n)) ρ)) ⟩
-  renval {σ = < σ >} ρ (eval γ (tup f))
-  ∎
+renvaleval {σ = < σ >} γ ρ (unf x f) = SEq (renvaleval γ ρ x) 
+  (Σeq 
+    (cong proj₁ (renvaleval γ ρ f)) 
+    refl 
+    (cong proj₂ (renvaleval γ ρ f)))
+renvaleval {σ = σ} γ ρ (sh s) = cong x (renvaleval γ ρ s)
+renvaleval {σ = < σ >} γ ρ (st s) = SEq (
+  proof
+    proj₁ (f (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s)) renId (x (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s))
+    ≅⟨ cong (λ t → t renId (x (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s))) (cong (proj₁ ∘ f) (renvaleval γ ρ s)) ⟩
+    proj₁ (f (eval γ s)) (ρ ∘ renId) (x (eval (λ {σ'} → renval {σ = σ'} ρ ∘ γ) s))
+    ≅⟨ cong (λ t → proj₁ (f (eval γ s)) (ρ ∘ renId) t) (cong x (renvaleval γ ρ s)) ⟩
+    proj₁ (f (eval γ s)) (ρ ∘ renId) (renval {σ = σ} ρ (x (eval γ s)))
+    ≅⟨ sym (proj₂ (f (eval γ s)) renId ρ (x (eval γ s))) ⟩ 
+    renval {σ = σ} ρ (proj₁ (f (eval γ s)) renId (x (eval γ s)))
+  ∎) 
+  (Σeq 
+    (cong (proj₁ ∘ f) (renvaleval γ ρ s)) 
+    refl 
+    (cong (proj₂ ∘ f) (renvaleval γ ρ s)))
 
 
 
@@ -173,22 +188,12 @@ evalsound pairfst∼ refl = refl
 evalsound pairsnd∼ refl = refl
 evalsound (congfst∼ p) q = cong proj₁ (evalsound p q)
 evalsound (congsnd∼ p) q = cong proj₂ (evalsound p q)
-evalsound (congtup∼ f) q = cong tabulate (ext (λ n → evalsound (f n) q))
-evalsound (congproj∼ {n = n} p) q = cong (λ h → lookup h n) (evalsound p q)
-evalsound {γ = γ}{γ' = γ'} (streambeta∼ {n = n}{f = f}) q = proof
-  lookup (tabulate (λ n₁ → eval γ (f n₁))) n
-  ≅⟨ lookuptab (eval γ ∘ f) n ⟩
-  eval γ (f n)
-  ≅⟨ cong (λ (g : Env _ _) → eval g (f n)) q ⟩
-  eval γ' (f n)
-  ∎
-evalsound {γ = γ}{γ' = γ'} (streameta∼ {s = s}) q = proof
-   eval γ s 
-   ≅⟨ cong (λ (f : Env _ _) → eval f s) q ⟩
-   eval γ' s
-   ≅⟨ sym (SEq (tablookup (eval γ' s))) ⟩ 
-   tabulate (λ n → lookup (eval γ' s) n)
-   ∎
+evalsound (congunf∼ x f) q = cong₂ St (evalsound x q) (evalsound f q)
+evalsound (congsh∼ s) q = cong x (evalsound s q)
+evalsound {γ = γ} (congst∼ {s = s1} s) q = cong₂ 
+  St (cong₂ (λ t u → proj₁ t renId u) (cong f (evalsound s q)) (cong x (evalsound s q))) 
+  (cong f (evalsound s q))
+
 
 ≅to∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → t ≅ t' → t ∼ t'
 ≅to∼ refl = refl∼
@@ -234,10 +239,10 @@ ren∼ refl (pairfst∼ {a = a}{b = b}) = pairfst∼ {a = ren _ a}
 ren∼ refl (pairsnd∼ {a = a}{b = b}) = pairsnd∼ {b = ren _ b} 
 ren∼ p (congfst∼ q) = congfst∼ (ren∼ p q)
 ren∼ p (congsnd∼ q) = congsnd∼ (ren∼ p q)
-ren∼ p (congtup∼ h) = congtup∼ (λ n → ren∼ p (h n))
-ren∼ p (congproj∼ {n = n} q)= congproj∼ (ren∼ p q)
-ren∼ {ρ = ρ} p (streambeta∼ {n = n}{f = f}) = trans∼ (streambeta∼ {f = ren ρ ∘ f}) (ren∼ p refl∼)
-ren∼ {ρ = ρ}{ρ' = .ρ} refl (streameta∼ {s = s}) = streameta∼ {s = ren ρ s}
+ren∼ p (congunf∼ x f) = congunf∼ (ren∼ p x) (ren∼ p f)
+ren∼ p (congsh∼ q)= congsh∼ (ren∼ p q)
+ren∼ p (congst∼ q)= congst∼ (ren∼ p q)
+
 
 
 _∋_R_ : ∀{Γ} σ → (t : Tm Γ σ) → (v : Val Γ σ) → Set
@@ -247,9 +252,9 @@ nat ∋ t R nze = t ∼ ze
 nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
 (σ ∧ τ) ∋ t R v = σ ∋ fst t R proj₁ v × τ ∋ snd t R proj₂ v  
-< σ > ∋ t R v = ∀ n → σ ∋ proj n t R lookup v n 
+< σ > ∋ t R v = {!!}
 
-
+{-
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
 R∼ {σ = ι} r p = trans∼ (sym∼ p) r
 R∼ {σ = σ ⇒ τ} r p =  λ ρ u v r' → let a = r ρ u v r' in R∼ a (congapp∼ (ren∼ refl p) refl∼)
@@ -450,3 +455,4 @@ mutual
     ≅⟨ lookuptab (λ a → reflect σ (nproj a s)) n ⟩
     reflect σ (nproj n s)
     ∎
+-}
