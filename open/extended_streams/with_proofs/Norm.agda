@@ -46,8 +46,8 @@ data _∼_ : ∀{Γ}{σ} → Tm Γ σ → Tm Γ σ → Set where
   congunf∼    : ∀{Γ σ} → {x x' : Tm Γ σ}{f f' : Tm Γ (σ ⇒ σ)} → x ∼ x' → f ∼ f' → unf x f ∼ unf x' f'
   congsh∼     : ∀{Γ σ} → {s s' : Tm Γ < σ >} → s ∼ s' → sh s ∼ sh s'
   congst∼     : ∀{Γ σ} → {s s' : Tm Γ < σ >} → s ∼ s' → st s ∼ st s'
-  {-streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n
-  streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ tup (λ n → proj n s) -}
+  {-streambeta∼ : ∀{Γ σ} → {n : ℕ} → {f : ℕ → Tm Γ σ} → proj n (tup f) ∼ f n -}
+  --streameta∼  : ∀{Γ σ} → {s : Tm Γ < σ >} → s ∼ unf x f
 
 
 
@@ -254,8 +254,10 @@ nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ∧ τ) ∋ t R v = σ ∋ fst t R proj₁ v × τ ∋ snd t R proj₂ v  
 < σ > ∋ t R v = Σ (Tm _ σ) (λ x' → Σ (Tm _ (σ ⇒ σ)) (λ f' → 
   unf x' f' ∼ t × 
-  σ ∋ x' R x v × 
-  σ ∋ app f' x' R proj₁ (f v) renId (x v))) -- maybe should take ρ
+  σ ∋ x' R (x v) × 
+  (∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v' : Val Δ σ) → σ ∋ u R v' → σ ∋ app (ren ρ f') u R proj₁ (f v) ρ v')))
+
+--∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
 
 --Σ (Tm Γ σ) (λ x' → Σ (Tm Γ (σ ⇒ σ)) (λ f' → unf x' f' ∼ t × σ ∋ x' R x v × (σ ⇒ σ) ∋ f' R f v))
 
@@ -267,12 +269,11 @@ R∼ {σ = nat} {v = nenat x} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat} {v = nze} r p = trans∼ (sym∼ p) r
 R∼ {σ = nat}{t = t}{t' = t'} {v = nsu n} (t'' , t'∼ , t''Rn) p = t'' , ((trans∼ (sym∼ p) t'∼) , t''Rn)
 R∼ {σ = σ ∧ τ} {v = v} r p = R∼ (proj₁ r) (congfst∼ p) , R∼ (proj₂ r) (congsnd∼ p)
-R∼ {σ = < σ >} (t , f , q) p = t , (f , (trans∼ (proj₁ q) p) , proj₂ q)
+R∼ {σ = < σ >} (t , f , q) p = t , (f , ((trans∼ (proj₁ q) p) , proj₂ q))
 
 
 R'∼ : ∀{Γ σ} → {t : Tm Γ σ} → {v v' : Val Γ σ} → σ ∋ t R v → v ≅ v' → σ ∋ t R v'
 R'∼ r refl = r
-
 
 
 mutual
@@ -302,15 +303,14 @@ R-ren {σ = nat} {v = nenat x} α r = trans∼ (ren∼ refl r) (ren-embNe α x)
 R-ren {σ = nat} {v = nze} α r = ren∼ refl r
 R-ren {σ = nat} {v = nsu v} α (n , t∼ , nRv) = (ren α n) , ((ren∼ refl t∼) , R-ren {t = n}{v = v} α nRv)
 R-ren {σ = σ ∧ τ}{v = v} α r = (R-ren {σ = σ} α (proj₁ r)) , (R-ren {σ = τ} α (proj₂ r))
-R-ren {σ = < σ >}{t = s}{v = v} α (x' , f' , q) = (ren α x') , (
+R-ren {σ = < σ >}{t = s}{v = v} α (x' , f' , q) = 
+  (ren α x') , 
   (ren α f') , 
-  (ren∼ refl (proj₁ q) , 
-  (R-ren {t = x'} α (proj₁ (proj₂ q))) ,
-  {!R∼ !}))
+    ((ren∼ refl (proj₁ q)) , 
+     (R-ren {t = x'} α (proj₁ (proj₂ q))) , 
+     (λ ρ u v' x₁ → R∼ {σ = σ} (proj₂ (proj₂ q) (ρ ∘ α) u v' x₁) (congapp∼ (≅to∼ (rencomp ρ α _)) refl∼)))
 
---λ n → R'∼ {t = ren α (proj n s)} (R-ren {σ = σ} α (r n)) (renvallookup α v n)
 
-{-
 _E_ : ∀{Γ Δ} → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → Set
 ρ E η = ∀{σ} → (x : Var _ σ) → σ ∋ ρ x R η x
 
@@ -341,15 +341,25 @@ mutual
   reifyR nat {v = nze} r = r
   reifyR nat {v = nsu v} (n , t∼ , nRv) = trans∼ t∼ (congsu∼ (reifyR nat {t = n}{v = v} nRv)) 
   reifyR (σ ∧ τ) {t = t}{v = v} r = trans∼ (paireta∼ {t = t}) (congpair∼ (reifyR σ (proj₁ r)) (reifyR τ (proj₂ r)))
-  reifyR < σ > r = trans∼ streameta∼ (congtup∼ (λ n → reifyR σ (r n)))
-
+  reifyR < σ > {t = t}{v = v} r = begin
+    t
+    ∼⟨ sym∼ (proj₁ (proj₂ (proj₂ r))) ⟩
+    unf (proj₁ r) (proj₁ (proj₂ r))
+    ∼⟨ congunf∼ 
+      (reifyR σ (proj₁ (proj₂ (proj₂ (proj₂ r))))) 
+      (trans∼ eta∼ (conglam∼ (reifyR σ (proj₂ (proj₂ (proj₂ (proj₂ r))) vsu (var vze) (reflect σ (nvar vze)) (reflectR σ refl∼))))) ⟩
+    unf (embNf (reify σ (x v))) (lam (embNf (reify σ (proj₁ (f v) vsu (reflect σ (nvar vze))))))
+    Qed where open ∼-Reasoning
+ 
 
   reflectR : ∀{Γ} σ {t : Tm Γ σ}{n : Ne Γ σ} → t ∼ embNe n → σ ∋ t R (reflect σ n)
   reflectR ι p = p
   reflectR (σ ⇒ τ) {t = t} p ρ u v p' = reflectR τ (congapp∼ (trans∼ (ren∼ refl p) (ren-embNe ρ _)) (reifyR σ p'))
   reflectR nat p = p
   reflectR (σ ∧ τ) {t = t}{n = n} p = reflectR σ (congfst∼ p) , reflectR τ (congsnd∼ p)
-  reflectR < σ > {t = t} p n = R'∼ {t = proj n t} (reflectR σ (congproj∼ p)) (sym (lookuptab (λ a → reflect σ (nproj a _)) n))
+  reflectR < σ > {t = t} p = {!!}
+
+--R'∼ {t = proj n t} (reflectR σ (congproj∼ p)) (sym (lookuptab (λ a → reflect σ (nproj a _)) n))
 
 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
@@ -360,7 +370,7 @@ natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv}{nsu nv} zR fR (n' , n∼ , nRnv) = R∼ {Γ}{
          (natfoldR {nv = nv} zR fR nRnv)) 
          (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsu∼ z f n'))) (congrec∼ refl∼ refl∼ (sym∼ n∼)))
 
-
+{-
 fund-thm : ∀{Γ Δ σ} (t : Tm Γ σ) → (ρ : Sub Γ Δ) → (η : Env Γ Δ) → ρ E η → σ ∋ sub ρ t R (eval η t)
 fund-thm (var x) ρ η e = e x
 fund-thm (lam t) ρ η e = λ α u v p → R∼ (fund-thm t (sub<< (ren α ∘ ρ) u) ((λ {σ'} → renval {σ = σ'} α ∘ η) << v) (E<<-ren α p e))
