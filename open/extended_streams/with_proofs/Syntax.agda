@@ -36,6 +36,7 @@ data Tm (Γ : Con) : Ty → Set where
   unf  : ∀{σ} → Tm Γ σ → Tm Γ (σ ⇒ σ) → Tm Γ < σ >
   sh   : ∀{σ} → Tm Γ < σ > → Tm Γ σ
   st   : ∀{σ} → Tm Γ < σ > → Tm Γ < σ >
+  sf   : ∀{σ} → Tm Γ < σ > → Tm Γ (σ ⇒ σ)
 
 
 -- the type of renamings: functions mapping variables in one context to
@@ -75,7 +76,7 @@ ren α (rec z f n) = rec (ren α z) (ren α f) (ren α n)
 ren α (unf x f) = unf (ren α x) (ren α f)
 ren α (sh s) = sh (ren α s)
 ren α (st s) = st (ren α s)
-  
+ren α (sf s) = sf (ren α s)  
 
 -- the identity renaming (maps variables to themselves)
 
@@ -130,6 +131,7 @@ renid (snd t) = cong snd (renid t)
 renid (unf x f) = cong₂ unf (renid x) (renid f)
 renid (sh s) = cong sh (renid s)
 renid (st s) = cong st (renid s)
+renid (sf s) = cong sf (renid s)
 
 
 -- composing two renamings and then weakening them together should be
@@ -161,6 +163,7 @@ rencomp f g (snd t) = cong snd (rencomp f g t)
 rencomp f g (unf x fn) = cong₂ unf (rencomp f g x) (rencomp f g fn)
 rencomp f g (sh s) = cong sh (rencomp f g s)
 rencomp f g (st s) = cong st (rencomp f g s)
+rencomp f g (sf s) = cong sf (rencomp f g s)
 
 
 Sub : Con → Con → Set
@@ -183,6 +186,7 @@ sub f (snd t) = snd (sub f t)
 sub f (unf x fn) = unf (sub f x) (sub f fn)
 sub f (sh s) = sh (sub f s)
 sub f (st s) = st (sub f s)
+sub f (sf s) = sf (sub f s)
 
 
 sub<< : ∀{Γ Δ} → Sub Γ Δ → ∀{σ} → Tm Δ σ → Sub (Γ < σ) Δ
@@ -219,6 +223,7 @@ subid (snd t) = cong snd (subid t)
 subid (unf x f) = cong₂ unf (subid x) (subid f)
 subid (sh s) = cong sh (subid s)
 subid (st s) = cong st (subid s)
+subid (sf s) = cong sf (subid s)
 
 
 -- time for the mysterious four lemmas:
@@ -248,6 +253,7 @@ subren f g (snd t) = cong snd (subren f g t)
 subren f g (unf x fn) = cong₂ unf (subren f g x) (subren f g fn)
 subren f g (sh s) = cong sh (subren f g s)
 subren f g (st s) = cong st (subren f g s)
+subren f g (sf s) = cong sf (subren f g s)
 
 
 renwklift : ∀{B Γ Δ}(f : Ren Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -275,6 +281,7 @@ rensub f g (snd t) = cong snd (rensub f g t)
 rensub f g (unf x fn) = cong₂ unf (rensub f g x) (rensub f g fn)
 rensub f g (sh s) = cong sh (rensub f g s)
 rensub f g (st s) = cong st (rensub f g s)
+rensub f g (sf s) = cong sf (rensub f g s)
 
 
 liftcomp : ∀{B Γ Δ}(f : Sub Γ Δ)(g : Sub B Γ){σ τ}(x : Var (B < σ) τ) →
@@ -309,4 +316,5 @@ subcomp f g (snd t) = cong snd (subcomp f g t)
 subcomp f g (unf x fn) = cong₂ unf (subcomp f g x) (subcomp f g fn)
 subcomp f g (sh s) = cong sh (subcomp f g s)
 subcomp f g (st s) = cong st (subcomp f g s)
+subcomp f g (sf s) = cong sf (subcomp f g s)
 

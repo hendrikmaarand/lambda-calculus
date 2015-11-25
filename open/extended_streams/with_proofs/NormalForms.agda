@@ -26,6 +26,7 @@ mutual
     nrec  : ∀{σ} → Nf Γ σ  → Nf Γ (σ ⇒ σ) → Ne Γ nat → Ne Γ σ 
     nsh   : ∀{σ} → Ne Γ < σ > → Ne Γ σ
     nst   : ∀{σ} → Ne Γ < σ > → Ne Γ < σ >
+    nsf   : ∀{σ} → Ne Γ < σ > → Ne Γ (σ ⇒ σ)
 
 
 mutual
@@ -46,6 +47,7 @@ mutual
   embNe (nrec z f n) = rec (embNf z) (embNf f) (embNe n)
   embNe (nsh s) = sh (embNe s)
   embNe (nst s) = st (embNe s)
+  embNe (nsf s) = sf (embNe s)
 
 
 mutual
@@ -66,6 +68,7 @@ mutual
   renNe α (nrec z f n) = nrec (renNf α z) (renNf α f) (renNe α n)
   renNe α (nsh s) = nsh (renNe α s)
   renNe α (nst s) = nst (renNe α s)
+  renNe α (nsf s) = nsf (renNe α s)
 
 
 
@@ -78,6 +81,7 @@ mutual
   rennecomp ρ' ρ (nsnd n) = cong nsnd (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nsh n) = cong nsh (rennecomp ρ' ρ n)
   rennecomp ρ' ρ (nst n) = cong nst (rennecomp ρ' ρ n)
+  rennecomp ρ' ρ (nsf n) = cong nsf (rennecomp ρ' ρ n)
 
   rennfcomp : ∀{Γ Δ E σ} → (ρ' : Ren Δ E)(ρ : Ren Γ Δ)(v : Nf Γ σ) → renNf ρ' (renNf ρ v) ≅ renNf (ρ' ∘ ρ) v
   rennfcomp ρ' ρ (nlam v) = proof
@@ -119,5 +123,6 @@ mutual
   renneid (nsnd n) = cong nsnd (renneid n)
   renneid (nsh n) = cong nsh (renneid n)
   renneid (nst n) = cong nst (renneid n)
+  renneid (nsf n) = cong nsf (renneid n)
 
 

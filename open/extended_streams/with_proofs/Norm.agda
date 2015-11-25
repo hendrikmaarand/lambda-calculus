@@ -252,14 +252,10 @@ nat ∋ t R nze = t ∼ ze
 nat ∋ t R nsu v = Σ (Tm _ nat) (λ t' → t ∼ su t' × nat ∋ t' R v )
 (σ ⇒ τ) ∋ t R f = ∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
 (σ ∧ τ) ∋ t R v = σ ∋ fst t R proj₁ v × τ ∋ snd t R proj₂ v  
-< σ > ∋ t R v = Σ (Tm _ σ) (λ x' → Σ (Tm _ (σ ⇒ σ)) (λ f' → 
-  unf x' f' ∼ t × 
+< σ > ∋ s R v =  Σ (Tm _ σ) (λ x' → Σ (Tm _ (σ ⇒ σ)) (λ f' → 
+  unf x' f' ∼ s × 
   σ ∋ x' R (x v) × 
   (∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v' : Val Δ σ) → σ ∋ u R v' → σ ∋ app (ren ρ f') u R proj₁ (f v) ρ v')))
-
---∀{Δ} → (ρ : Ren _ Δ)(u : Tm Δ σ)(v : Val Δ σ) → σ ∋ u R v → τ ∋ app (ren ρ t) u R proj₁ f ρ v
-
---Σ (Tm Γ σ) (λ x' → Σ (Tm Γ (σ ⇒ σ)) (λ f' → unf x' f' ∼ t × σ ∋ x' R x v × (σ ⇒ σ) ∋ f' R f v))
 
 
 R∼ : ∀{Γ σ} → {t t' : Tm Γ σ} → {v : Val Γ σ} → σ ∋ t R v → t ∼ t' → σ ∋ t' R v
@@ -357,15 +353,15 @@ mutual
   reflectR (σ ⇒ τ) {t = t} p ρ u v p' = reflectR τ (congapp∼ (trans∼ (ren∼ refl p) (ren-embNe ρ _)) (reifyR σ p'))
   reflectR nat p = p
   reflectR (σ ∧ τ) {t = t}{n = n} p = reflectR σ (congfst∼ p) , reflectR τ (congsnd∼ p)
-  reflectR < σ > {t = t} p = {!!}
+  reflectR < σ > {t = t} p = (sh t) , (lam {!!} , {!!})
 
 --R'∼ {t = proj n t} (reflectR σ (congproj∼ p)) (sym (lookuptab (λ a → reflect σ (nproj a _)) n))
 
 
 natfoldR : ∀{Γ σ} → {z : Tm Γ σ}{f : Tm Γ (σ ⇒ σ)}{n : Tm Γ nat}{zv : Val Γ σ}{fv : Val Γ (σ ⇒ σ)}{nv : Val Γ nat} → 
          σ ∋ z R zv → (σ ⇒ σ) ∋ f R fv → nat ∋ n R nv → σ ∋ (rec z f n) R natfold {σ = σ} zv fv nv
-natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR              = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
-natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nze} zR fR nR   = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congrecze∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
+natfoldR {σ = σ}{f = f}{fv = fv} {nenat x} zR fR nR             = reflectR σ (congrec∼ (reifyR σ zR) (reifyR (σ ⇒ σ) {t = f}{v = fv} fR) nR)
+natfoldR {Γ}{σ}{z = z}{f = f}{n = n}{fv = fv} {nze} zR fR nR    = R∼ {Γ}{σ} zR (trans∼ (sym∼ (congrecze∼ z f)) (congrec∼ refl∼ refl∼ (sym∼ nR)))
 natfoldR {Γ}{σ}{z}{f}{n}{zv}{fv}{nsu nv} zR fR (n' , n∼ , nRnv) = R∼ {Γ}{σ} (fR renId (rec z f n') (natfold {σ = σ} zv fv nv) 
          (natfoldR {nv = nv} zR fR nRnv)) 
          (trans∼ (trans∼ (congapp∼ (≅to∼ (renid f)) refl∼) (sym∼ (congrecsu∼ z f n'))) (congrec∼ refl∼ refl∼ (sym∼ n∼)))
